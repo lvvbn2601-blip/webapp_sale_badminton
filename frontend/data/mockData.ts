@@ -1,0 +1,286 @@
+import { Brand, Category, Product, Review, User } from "../types";
+
+export const categories: Category[] = [
+  {
+    id: "rackets",
+    name: "Rackets",
+    slug: "rackets",
+    image:
+      "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=800&q=80",
+  },
+  {
+    id: "shuttlecocks",
+    name: "Shuttlecocks",
+    slug: "shuttlecocks",
+    image:
+      "https://images.unsplash.com/photo-1534158914592-062992fbe900?auto=format&fit=crop&w=800&q=80",
+  },
+  {
+    id: "shoes",
+    name: "Badminton Shoes",
+    slug: "shoes",
+    image:
+      "https://images.unsplash.com/photo-1542293787938-4d22382e9c56?auto=format&fit=crop&w=800&q=80",
+  },
+  {
+    id: "bags",
+    name: "Bags & Gear",
+    slug: "bags",
+    image:
+      "https://images.unsplash.com/photo-1511556670410-f4243f30f8ce?auto=format&fit=crop&w=800&q=80",
+  },
+];
+
+export const brands: Brand[] = [
+  { id: "b1", name: "Yonex", slug: "yonex" },
+  { id: "b2", name: "Li-Ning", slug: "li-ning" },
+  { id: "b3", name: "Victor", slug: "victor" },
+  { id: "b4", name: "Mizuno", slug: "mizuno" },
+];
+
+export const products: Product[] = [
+  {
+    id: "1",
+    name: "Yonex Astrox 100 ZZ",
+    slug: "yonex-astrox-100-zz",
+    price: 240,
+    rating: 4.9,
+    reviewCount: 215,
+    image: "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=800&q=80",
+    category: "rackets",
+    brand: "Yonex",
+    description: "Hyper-slim shaft for advanced players seeking powerful, steep smashes.",
+    badges: ["Authentic", "New"],
+    specs: { "Play Style": "Attacking", "Weight": "3U", "Stiffness": "Extra Stiff", "Max Tension": "28 lbs" }
+  },
+  {
+    id: "2",
+    name: "Li-Ning Axforce 80",
+    slug: "li-ning-axforce-80",
+    price: 199,
+    rating: 4.8,
+    reviewCount: 142,
+    image: "https://images.unsplash.com/photo-1595433562696-b6d35f3f0785?auto=format&fit=crop&w=800&q=80",
+    category: "rackets",
+    brand: "Li-Ning",
+    description: "Unleash explosive power and devastating smashes with Axforce.",
+    badges: ["Authentic", "Sale"],
+    specs: { "Play Style": "Attacking", "Weight": "4U", "Stiffness": "Stiff", "Max Tension": "30 lbs" }
+  },
+  {
+    id: "3",
+    name: "Victor Thruster Ryuga",
+    slug: "victor-thruster-ryuga",
+    price: 185,
+    rating: 4.7,
+    reviewCount: 95,
+    image: "https://images.unsplash.com/photo-1510526786858-a4acb41cf434?auto=format&fit=crop&w=800&q=80",
+    category: "rackets",
+    brand: "Victor",
+    description: "Dragon motif with an immense level of repulsion power.",
+    badges: ["Best Seller", "Authentic"],
+    specs: { "Play Style": "Attacking", "Weight": "4U", "Stiffness": "Medium", "Max Tension": "31 lbs" }
+  },
+  {
+    id: "4",
+    name: "Yonex Arcsaber 11 Pro",
+    slug: "yonex-arcsaber-11-pro",
+    price: 235,
+    rating: 4.9,
+    reviewCount: 310,
+    image: "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=800&q=80",
+    category: "rackets",
+    brand: "Yonex",
+    description: "Master of control, giving you that decisive edge on the court.",
+    badges: ["Authentic", "Best Seller"],
+    specs: { "Play Style": "All-around", "Weight": "3U", "Stiffness": "Stiff", "Max Tension": "27 lbs" }
+  },
+  {
+    id: "5",
+    name: "Mizuno Fortius 11 Quick",
+    slug: "mizuno-fortius-11-quick",
+    price: 189,
+    rating: 4.6,
+    reviewCount: 80,
+    image: "https://images.unsplash.com/photo-1595433562696-b6d35f3f0785?auto=format&fit=crop&w=800&q=80",
+    category: "rackets",
+    brand: "Mizuno",
+    description: "Extremely quick swing speed suitable for double players.",
+    badges: ["New", "Authentic"],
+    specs: { "Play Style": "Defensive", "Weight": "4U", "Stiffness": "Extra Stiff", "Max Tension": "29 lbs" }
+  },
+  {
+    id: "6",
+    name: "Yonex Nanoflare 800",
+    slug: "yonex-nanoflare-800",
+    price: 219,
+    rating: 4.8,
+    reviewCount: 155,
+    image: "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=800&q=80",
+    category: "rackets",
+    brand: "Yonex",
+    description: "Lightning fast speed that leaves opponents no time to react.",
+    badges: ["Authentic"],
+    specs: { "Play Style": "Defensive", "Weight": "3U", "Stiffness": "Stiff", "Max Tension": "28 lbs" }
+  },
+  {
+    id: "7",
+    name: "Li-Ning Halbertec 8000",
+    slug: "li-ning-halbertec-8000",
+    price: 205,
+    rating: 4.7,
+    reviewCount: 130,
+    image: "https://images.unsplash.com/photo-1510526786858-a4acb41cf434?auto=format&fit=crop&w=800&q=80",
+    category: "rackets",
+    brand: "Li-Ning",
+    description: "Balanced racket for players who demand absolute control.",
+    badges: ["Sale", "Authentic"],
+    specs: { "Play Style": "All-around", "Weight": "4U", "Stiffness": "Medium", "Max Tension": "30 lbs" }
+  },
+  {
+    id: "8",
+    name: "Yonex Astrox 77 Play",
+    slug: "yonex-astrox-77-play",
+    price: 89,
+    rating: 4.5,
+    reviewCount: 420,
+    image: "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=800&q=80",
+    category: "rackets",
+    brand: "Yonex",
+    description: "Affordable attacking power designed specifically for beginners.",
+    badges: ["Best Seller", "Budget"],
+    specs: { "Play Style": "Beginner", "Weight": "4U", "Stiffness": "Flexible", "Max Tension": "26 lbs" }
+  },
+  {
+    id: "9",
+    name: "Yonex BG66 Ultimax String",
+    slug: "yonex-bg66-ultimax-string",
+    price: 15,
+    rating: 4.9,
+    reviewCount: 800,
+    image: "https://images.unsplash.com/photo-1595433562696-b6d35f3f0785?auto=format&fit=crop&w=800&q=80",
+    category: "rackets",
+    brand: "Yonex",
+    description: "The ultimate string for high repulsion and crisp hitting sound.",
+    badges: ["Best Seller", "Authentic"],
+    specs: { "Type": "String", "Thickness": "0.65mm", "Feeling": "Stiff" }
+  },
+  {
+    id: "10",
+    name: "Yonex Power Cushion 65Z3",
+    slug: "yonex-pc-65z3",
+    price: 139,
+    rating: 4.8,
+    reviewCount: 322,
+    image: "https://images.unsplash.com/photo-1542293787938-4d22382e9c56?auto=format&fit=crop&w=800&q=80",
+    category: "shoes",
+    brand: "Yonex",
+    description: "Iconic all-around shoe favored by top professionals globally.",
+    badges: ["Authentic", "New"],
+    specs: { "Type": "All-court", "Width": "Standard", "Outsole": "Power Cushion+" }
+  },
+  {
+    id: "11",
+    name: "Yonex Aerosensa 20 Shuttlecock",
+    slug: "yonex-as20",
+    price: 32,
+    rating: 4.7,
+    reviewCount: 140,
+    image: "https://images.unsplash.com/photo-1534158914592-062992fbe900?auto=format&fit=crop&w=800&q=80",
+    category: "shuttlecocks",
+    brand: "Yonex",
+    description: "Durable duck feather shuttle for club training and games.",
+    badges: ["Best Seller"],
+    specs: { "Material": "Duck Feather", "Speed": "77", "Durability": "High" }
+  },
+  {
+    id: "12",
+    name: "Victor 9000 Series Pro Bag",
+    slug: "victor-9000-pro-bag",
+    price: 110,
+    rating: 4.8,
+    reviewCount: 65,
+    image: "https://images.unsplash.com/photo-1511556670410-f4243f30f8ce?auto=format&fit=crop&w=800&q=80",
+    category: "bags",
+    brand: "Victor",
+    description: "Massive 9-racket bag with thermal lining and shoe compartment.",
+    badges: ["Authentic", "New"],
+    specs: { "Capacity": "9 Rackets", "Straps": "Backpack", "Shoe Compartment": "Yes" }
+  }
+];
+
+export const reviews: Review[] = [
+  {
+    id: "r1",
+    user: "Alex M.",
+    rating: 5,
+    title: "Incredible smash power",
+    comment: "The racket power and control feel perfect for doubles. Huge upgrade.",
+    date: "2026-02-08",
+    tags: ["durability", "power", "control"],
+    helpfulCount: 24,
+    verified: true,
+  },
+  {
+    id: "r2",
+    user: "Jordan P.",
+    rating: 2,
+    title: "Good but brittle",
+    comment: "Shuttle flight is very consistent even during long sessions, but they break fast.",
+    date: "2026-01-22",
+    tags: ["shuttle", "brittle"],
+    helpfulCount: 8,
+    verified: false,
+  },
+  {
+    id: "r3",
+    user: "Taylor S.",
+    rating: 5,
+    title: "Best court shoes",
+    comment: "Court shoes have excellent grip and lateral support.",
+    date: "2026-03-01",
+    tags: ["comfort", "grip"],
+    helpfulCount: 45,
+    verified: true,
+  },
+  {
+    id: "r4",
+    user: "Chris L.",
+    rating: 1,
+    title: "Arrived damaged",
+    comment: "The packaging was crushed, which is very disappointing.",
+    date: "2026-03-10",
+    tags: ["quality control"],
+    helpfulCount: 15,
+    verified: true,
+  },
+  {
+    id: "r5",
+    user: "Sam W.",
+    rating: 4,
+    title: "Great value",
+    comment: "For the price, you cannot beat the performance of this.",
+    date: "2026-03-15",
+    tags: ["value"],
+    helpfulCount: 2,
+    verified: true,
+  },
+  {
+    id: "r6",
+    user: "Morgan H.",
+    rating: 3,
+    title: "Average",
+    comment: "It's decent but I've used better.",
+    date: "2026-03-20",
+    tags: [],
+    helpfulCount: 0,
+    verified: true,
+  }
+];
+
+export const users: User[] = [
+  { id: "u1", name: "Alex Morgan", email: "alex@sportive.com", role: "admin" },
+  { id: "u2", name: "Jordan Parker", email: "jordan@sportive.com", role: "user" },
+  { id: "u3", name: "Taylor Smith", email: "taylor@sportive.com", role: "user" },
+  { id: "u4", name: "Riley Chen", email: "riley@sportive.com", role: "user" },
+];

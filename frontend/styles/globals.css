@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #111111;
+  background-color: #f5f5f5;
+}
+
+body {
+  @apply font-body bg-background text-secondary antialiased;
+}
+
+a {
+  @apply text-secondary;
+}
+
+.container-default {
+  @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
+}
+
+.section-padding {
+  @apply py-12 sm:py-16 lg:py-20;
+}
+
+.glass {
+  @apply bg-white/80 backdrop-blur-md shadow-card;
+}
+
+.pill {
+  @apply rounded-full border border-black/5 bg-white/70 px-4 py-2 text-sm font-medium text-secondary;
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl hover:-translate-y-0.5;
+}
+
+.btn-outline {
+  @apply inline-flex items-center justify-center rounded-full border border-secondary px-6 py-3 text-sm font-semibold text-secondary transition hover:bg-secondary hover:text-white;
+}
+
+/* Dual-thumb range slider */
+.range-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 0;
+  outline: none;
+}
+
+.range-thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: all;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #e63946;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .1);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.range-thumb::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 2px 8px rgba(230, 57, 70, .3);
+}
+
+.range-thumb::-moz-range-thumb {
+  pointer-events: all;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #e63946;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .1);
+  cursor: pointer;
+}
+
+/* Hide scrollbar but keep scroll functional */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

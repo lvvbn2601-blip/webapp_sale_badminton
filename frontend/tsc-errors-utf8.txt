@@ -1,0 +1,13 @@
+components/CategoryCard.tsx(13,11): error TS2322: Type 'string | undefined' is not assignable to type 'string | StaticImport'.
+  Type 'undefined' is not assignable to type 'string | StaticImport'.
+pages/products/index.tsx(155,14): error TS2322: Type '() => Promise<{ props: { initialProducts: Product[]; categories: Category[]; brands: { _id: string; name: string; slug: string; image?: string; description?: string; }[]; }; } | { props: { ...; }; }>' is not assignable to type 'GetServerSideProps<Props>'.
+  Type 'Promise<{ props: { initialProducts: Product[]; categories: Category[]; brands: { _id: string; name: string; slug: string; image?: string | undefined; description?: string | undefined; }[]; }; } | { ...; }>' is not assignable to type 'Promise<GetServerSidePropsResult<Props>>'.
+    Type '{ props: { initialProducts: Product[]; categories: Category[]; brands: { _id: string; name: string; slug: string; image?: string | undefined; description?: string | undefined; }[]; }; } | { ...; }' is not assignable to type 'GetServerSidePropsResult<Props>'.
+      Type '{ props: { initialProducts: Product[]; categories: Category[]; brands: { _id: string; name: string; slug: string; image?: string; description?: string; }[]; }; }' is not assignable to type 'GetServerSidePropsResult<Props>'.
+        Type '{ props: { initialProducts: Product[]; categories: Category[]; brands: { _id: string; name: string; slug: string; image?: string; description?: string; }[]; }; }' is not assignable to type '{ props: Props | Promise<Props>; }'.
+          Types of property 'props' are incompatible.
+            Type '{ initialProducts: Product[]; categories: Category[]; brands: { _id: string; name: string; slug: string; image?: string; description?: string; }[]; }' is not assignable to type 'Props | Promise<Props>'.
+              Type '{ initialProducts: Product[]; categories: Category[]; brands: { _id: string; name: string; slug: string; image?: string; description?: string; }[]; }' is not assignable to type 'Props'.
+                Types of property 'brands' are incompatible.
+                  Type '{ _id: string; name: string; slug: string; image?: string | undefined; description?: string | undefined; }[]' is not assignable to type 'Brand[]'.
+                    Property 'id' is missing in type '{ _id: string; name: string; slug: string; image?: string | undefined; description?: string | undefined; }' but required in type 'Brand'.
