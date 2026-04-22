@@ -1,5 +1,5 @@
 import Head from "next/head";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Layout } from "../components/Layout";
@@ -7,25 +7,31 @@ import { CategoryCard } from "../components/CategoryCard";
 import { ProductGrid } from "../components/ProductGrid";
 import { ReviewCard } from "../components/ReviewCard";
 import { categories as mockCategories, products as mockProducts, reviews } from "../data/mockData";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { GetServerSideProps } from "next";
-import { fetchCategories, fetchTrending, fetchBestSellers, fetchFeaturedReviews } from "../lib/api";
+import { fetchCategories, fetchTrending, fetchBestSellers, fetchFeaturedReviews, fetchProducts } from "../lib/api";
 import { Category, Product } from "../types";
 import { useTracking } from "../lib/useTracking";
 import SmartVoucherPopup from "../components/SmartVoucherPopup";
+import { RacketQuizModal } from "../components/RacketQuizModal";
 
 type Props = {
   categories: Category[];
   trending: Product[];
   bestSellers: Product[];
   featuredReviews: any[];
+  initialProducts: Product[];
 };
 
-export default function HomePage({ categories, trending, bestSellers, featuredReviews }: Props) {
+export default function HomePage({ categories, trending, bestSellers, featuredReviews, initialProducts }: Props) {
   const { recommendations, fetchRecommendations, fetchSmartVouchers, smartVouchers, behavioralProfile } = useTracking();
+  const [isQuizOpen, setIsQuizOpen] = useState(false);
+
   const showTrendingFirst = recommendations?.strategy === 'trending_best_sellers' || recommendations?.strategy === 'sale_hunting';
   const isBrandLoyalist = behavioralProfile === 'brand_loyalist';
   const isBeginner = behavioralProfile === 'beginner';
+  const isGhostShopper = behavioralProfile === 'ghost_shopper';
+  const isGearGeek = behavioralProfile === 'gear_geek';
 
   useEffect(() => {
     fetchRecommendations();
@@ -56,7 +62,12 @@ export default function HomePage({ categories, trending, bestSellers, featuredRe
               <Link href="/products?category=rackets" className="btn-outline">
                 Explore Rackets
               </Link>
-
+              <button
+                onClick={() => setIsQuizOpen(true)}
+                className="btn-outline flex items-center gap-2 border-orange-400 text-orange-500 hover:bg-gradient-to-r from-red-500 to-orange-500 hover:text-white transition-all hover:-translate-y-1 shadow-lg shadow-orange-500/20"
+              >
+                <Sparkles size={18} /> Racket Quiz
+              </button>
             </div>
             <div className="flex items-center gap-6 text-sm text-secondary/70">
               <div>
@@ -88,7 +99,27 @@ export default function HomePage({ categories, trending, bestSellers, featuredRe
                   Designed for players who want sharper net play and stronger back-court attacks.
                 </p>
               </div>
+
+              {/* Floating Quiz Badge */}
+              <div className="absolute top-6 right-6 z-10">
+                <button
+                  onClick={() => setIsQuizOpen(true)}
+                  className="group flex flex-col items-center justify-center animate-bounce"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 backdrop-blur shadow-xl ring-4 ring-white/50 transition-transform group-hover:scale-110">
+                    <span className="text-2xl">🏸</span>
+                  </div>
+                  <span className="mt-2 rounded-full bg-gradient-to-r from-red-500 to-orange-500 px-3 py-1 text-xs font-bold text-white backdrop-blur transition-colors">
+                    Find Your Racket
+                  </span>
+                </button>
+              </div>
             </div>
+            <RacketQuizModal
+              isOpen={isQuizOpen}
+              onClose={() => setIsQuizOpen(false)}
+              products={initialProducts || []}
+            />
           </div>
         </div>
       </section>
@@ -189,6 +220,57 @@ export default function HomePage({ categories, trending, bestSellers, featuredRe
         </section>
       )}
 
+      {/* ── Profile-Aware: Ghost Shopper Section ── */}
+      {isGhostShopper && (
+        <section className="section-padding bg-gradient-to-br from-purple-50 to-white">
+          <div className="container-default space-y-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-heading text-2xl font-semibold">🔥 Featured products</h2>
+                <p className="mt-1 text-sm text-secondary/60">Hot deals for you</p>
+              </div>
+              <Link href="/products?sort=price-asc" className="flex items-center gap-2 text-sm font-semibold text-primary">
+                View all <ArrowRight size={16} />
+              </Link>
+            </div>
+            <ProductGrid
+              products={(
+                recommendations?.products?.length
+                  ? recommendations.products.slice(0, 6)
+                  : trending.slice(0, 6)
+              )}
+              loading={false}
+            />
+          </div>
+        </section>
+      )}
+
+      {/* ── Profile-Aware: Gear Geek Section ── */}
+      {isGearGeek && (
+        <section className="section-padding bg-gradient-to-br from-purple-50 to-white">
+          <div className="container-default space-y-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-heading text-2xl font-semibold">Matches your playing style.</h2>
+                <p className="mt-1 text-sm text-secondary/60">Based on the specifications you are interested in.</p>
+              </div>
+              <Link href="/products?sort=price-asc" className="flex items-center gap-2 text-sm font-semibold text-primary">
+                View all <ArrowRight size={16} />
+              </Link>
+            </div>
+            <ProductGrid
+              products={(
+                recommendations?.products?.length
+                  ? recommendations.products.slice(0, 6)
+                  : trending.slice(0, 6)
+              )}
+              loading={false}
+            />
+          </div>
+        </section>
+      )}
+
+
       <section className="section-padding">
         <div className="container-default grid gap-8 lg:grid-cols-[3fr_2fr]">
           <div className="space-y-5">
@@ -239,6 +321,9 @@ const mapProductForGrid = (p: any) => ({
   rating: p.rating || 0,
   reviews: p.reviews || 0,
   badges: p.badges || [],
+  specs: p.specs || {},
+  category: p.category || null,
+  description: p.description || "",
 });
 
 const mapCategory = (c: any) => ({
@@ -249,24 +334,36 @@ const mapCategory = (c: any) => ({
   image: c.image || null,
 });
 
-export const getServerSideProps: GetServerSideProps<Props> = async () => {
+export const getServerSideProps: GetServerSideProps<any> = async () => {
   try {
-    const [categories, trending, bestSellers, featuredReviewsRes] = await Promise.all([
-      fetchCategories(),
+    // 1. Fetch categories first to find the Rackets category ID
+    const categoriesRaw = await fetchCategories();
+    const categories = (categoriesRaw || []).map(mapCategory);
+
+    const racketCat = categories.find((c: any) =>
+      c.slug === 'rackets' || c.slug === 'racket' || String(c.name).toLowerCase().includes('racket')
+    );
+    const racketCatId = racketCat?._id || racketCat?.id;
+
+    // 2. Fetch the rest of the data, using the correct category ID for products
+    const [trending, bestSellers, featuredReviewsRes, productsData] = await Promise.all([
       fetchTrending(),
       fetchBestSellers(),
-      fetchFeaturedReviews()
+      fetchFeaturedReviews(),
+      fetchProducts({ category: racketCatId, limit: 100 })
     ]);
+
     return {
       props: {
-        categories: (categories || []).map(mapCategory),
+        categories,
         trending: (trending || []).map(mapProductForGrid),
         bestSellers: (bestSellers || []).map(mapProductForGrid),
         featuredReviews: (featuredReviewsRes || []).map((r: any) => ({
           ...r,
           id: r._id || r.id,
           date: r.createdAt || r.date || new Date().toISOString()
-        }))
+        })),
+        initialProducts: (productsData?.data || []).map(mapProductForGrid)
       }
     };
   } catch (error) {
@@ -276,7 +373,8 @@ export const getServerSideProps: GetServerSideProps<Props> = async () => {
         categories: mockCategories.map(mapCategory),
         trending: mockProducts.slice(0, 8).map(mapProductForGrid) as any,
         bestSellers: mockProducts.slice(1, 9).map(mapProductForGrid) as any,
-        featuredReviews: reviews
+        featuredReviews: reviews,
+        initialProducts: mockProducts.map(mapProductForGrid) as any
       },
     };
   }

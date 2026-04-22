@@ -72,7 +72,7 @@ export function ReviewCard({ review }: { review: Review }) {
                 <span className="font-bold text-sm">B</span>
               </div>
               <span className="font-bold text-primary">Shop Reply</span>
-              <span className="text-xs text-secondary/50">{review.adminReplyAt.slice(0, 10)}</span>
+              <span className="text-xs text-secondary/50">{review.adminReplyAt?.slice(0, 10)}</span>
             </div>
             <p className="text-sm text-secondary/80">{review.adminReply}</p>
           </div>

@@ -6,6 +6,7 @@ import {
   Settings, LogOut, Package, ArrowRight, TrendingUp, LayoutDashboard
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
+import { useWishlist } from "../context/WishlistContext";
 import { useRouter } from "next/router";
 import Image from "next/image";
 
@@ -18,6 +19,7 @@ type Props = {
 export function Navbar({ onCartClick }: Props) {
   const router = useRouter();
   const { count, items, selectedIds, toggleSelect, selectAll, deselectAll, remove } = useCart();
+  const wishlist = useWishlist();
 
   // States
   const [isScrolled, setIsScrolled] = useState(false);
@@ -374,8 +376,13 @@ export function Navbar({ onCartClick }: Props) {
             )}
 
             {account?.role !== "admin" && account?.role !== "knitter" && account?.role !== "warehouse_staff" && (
-              <Link href="/wishlist" className="hidden sm:flex p-2 rounded-full text-secondary/70 hover:text-primary hover:bg-primary/10 dark:text-gray-400 dark:hover:text-primary-light transition-colors focus:ring-2 focus:ring-primary focus:outline-none" aria-label="Wishlist">
+              <Link href="/wishlist" className="relative hidden sm:flex p-2 rounded-full text-secondary/70 hover:text-primary hover:bg-primary/10 dark:text-gray-400 dark:hover:text-primary-light transition-colors focus:ring-2 focus:ring-primary focus:outline-none" aria-label="Wishlist">
                 <Heart size={20} />
+                {wishlist.items.length > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-gray-900 scale-100 origin-center">
+                    {wishlist.items.length > 99 ? '99+' : wishlist.items.length}
+                  </span>
+                )}
               </Link>
             )}
 
@@ -436,7 +443,7 @@ export function Navbar({ onCartClick }: Props) {
                                   <p className="font-semibold text-sm text-secondary dark:text-white line-clamp-1">{item.product.name}</p>
                                   <p className="text-xs text-secondary/60 dark:text-gray-400 mt-0.5">Qty {item.quantity}  ×  ${(item.product.price || (item.product as any).basePrice || 0).toFixed(2)}</p>
                                 </div>
-                                <button onClick={(e) => { e.stopPropagation(); remove(pid); }} className="p-1.5 text-secondary/40 hover:text-red-500 hover:bg-red-50 rounded-lg transition" aria-label="Remove item">
+                                <button onClick={(e) => { e.stopPropagation(); if (window.confirm("Are you sure you want to remove this item?")) remove(pid); }} className="p-1.5 text-secondary/40 hover:text-red-500 hover:bg-red-50 rounded-lg transition" aria-label="Remove item">
                                   <X size={14} />
                                 </button>
                               </div>

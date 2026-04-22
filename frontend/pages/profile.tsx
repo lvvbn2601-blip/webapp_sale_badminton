@@ -116,6 +116,7 @@ export default function ProfilePage() {
   };
 
   const handleCancel = async (orderId: string) => {
+    if (!window.confirm("Are you sure you want to delete this?")) return;
     if (!token || !confirm("Are you sure you want to cancel this order?")) return;
     setActionLoading(orderId);
     try {
@@ -293,6 +294,7 @@ export default function ProfilePage() {
   };
 
   const removeAddress = (idx: number) => {
+    if (!window.confirm("Are you sure you want to delete this?")) return;
     const txt = addressList[idx];
     const nextList = addressList.filter((_, i) => i !== idx);
     setAddressList(nextList);

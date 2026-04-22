@@ -59,7 +59,6 @@ type Props = {
 
 export default function ProductListPage({ initialProducts, categories, brands, searchQuery, selectedCategory, selectedBrand }: Props) {
   // Initialize state
-  const [favorites, setFavorites] = useState<string[]>([]);
   const [compareList, setCompareList] = useState<Product[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
@@ -68,18 +67,6 @@ export default function ProductListPage({ initialProducts, categories, brands, s
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   }, []);
-
-  const handleToggleFavorite = useCallback((product: Product) => {
-    const id = String(product.id || (product as any)._id);
-    setFavorites(prev => {
-      if (prev.includes(id)) {
-        showToast(`Removed ${product.name} from wishlist`);
-        return prev.filter(fid => fid !== id);
-      }
-      showToast(`Added ${product.name} to wishlist`);
-      return [...prev, id];
-    });
-  }, [showToast]);
 
   const handleToggleCompare = useCallback((product: Product) => {
     setCompareList(prev => {
@@ -293,9 +280,7 @@ export default function ProductListPage({ initialProducts, categories, brands, s
                 showControls
                 sortBy={filters.sortBy}
                 onSortChange={handleSortChange}
-                favorites={favorites}
                 compareList={compareList}
-                onToggleFavorite={handleToggleFavorite}
                 onToggleCompare={handleToggleCompare}
               />
             </div>

@@ -1,7 +1,10 @@
 import { ICustomerBehavior, CustomerBehavior, BehavioralProfile } from '../models/CustomerBehavior';
 import { Product } from '../models/Product';
+import { BehaviorLog } from '../models/BehaviorLog';
+import { Category } from '../models/Category';
 import { redis } from '../config/redis';
 import mongoose from 'mongoose';
+import { findSimilarProductsForMany } from './similarityEngine';
 
 export interface RecommendationResult {
   strategy: string;
@@ -84,74 +87,70 @@ class RecommendationService {
   private async getGearGeekRecommendations(profile: ICustomerBehavior, limit: number): Promise<RecommendationResult> {
     const viewedIds = profile.viewedProductIds.slice(0, 5);
 
-    // Get specs of recently viewed products
-    let viewedProducts: any[] = [];
-    if (viewedIds.length > 0) {
-      viewedProducts = await Product.find({
-        _id: { $in: viewedIds.map(id => new mongoose.Types.ObjectId(id)) },
-        status: 'active',
-      }).lean();
-    }
+    // Use the content-based similarity engine for smarter matching
+    let products: any[] = [];
 
-    // Build spec-based query from viewed products
-    const specQueries: any[] = [];
-    for (const vp of viewedProducts) {
-      if (vp.specs) {
-        // Match products with similar balance point, weight class, etc.
-        const matchSpecs: Record<string, any> = {};
-        if (vp.specs['Balance Point']) {
-          matchSpecs['specs.Balance Point'] = vp.specs['Balance Point'];
-        }
-        if (vp.specs['Weight (U)']) {
-          matchSpecs['specs.Weight (U)'] = vp.specs['Weight (U)'];
-        }
-        if (Object.keys(matchSpecs).length > 0) {
-          specQueries.push(matchSpecs);
-        }
+    if (viewedIds.length > 0) {
+      try {
+        products = await findSimilarProductsForMany(viewedIds, 3, limit);
+      } catch (err) {
+        // Fallback to original spec-matching if similarity engine fails
+        console.warn('Similarity engine fallback:', err);
       }
     }
 
-    // Also get the primary category of viewed products
-    const viewedCategoryIds = viewedProducts
-      .map(p => p.category)
-      .filter(Boolean);
-
-    let products: any[] = [];
-
-    // First: spec-similar products
-    if (specQueries.length > 0) {
-      products = await Product.find({
+    // Fallback: spec-based query from viewed products
+    if (products.length < limit && viewedIds.length > 0) {
+      const viewedProducts = await Product.find({
+        _id: { $in: viewedIds.map(id => new mongoose.Types.ObjectId(id)) },
         status: 'active',
-        _id: { $nin: viewedIds.map(id => new mongoose.Types.ObjectId(id)) },
-        $or: specQueries,
-      })
-        .populate('category', 'name slug')
-        .populate('brand', 'name slug')
-        .sort({ rating: -1 })
-        .limit(limit)
-        .lean();
-    }
+      }).lean();
 
-    // If not enough, supplement with same-category products
-    if (products.length < limit && viewedCategoryIds.length > 0) {
-      const additional = await Product.find({
-        status: 'active',
-        _id: { $nin: [...viewedIds.map(id => new mongoose.Types.ObjectId(id)), ...products.map(p => p._id)] },
-        category: { $in: viewedCategoryIds },
-      })
-        .populate('category', 'name slug')
-        .populate('brand', 'name slug')
-        .sort({ rating: -1 })
-        .limit(limit - products.length)
-        .lean();
-      products = products.concat(additional);
+      const specQueries: any[] = [];
+      for (const vp of viewedProducts) {
+        if (vp.specs) {
+          const matchSpecs: Record<string, any> = {};
+          if (vp.specs['Balance Point']) {
+            matchSpecs['specs.Balance Point'] = vp.specs['Balance Point'];
+          }
+          if (vp.specs['Weight (U)']) {
+            matchSpecs['specs.Weight (U)'] = vp.specs['Weight (U)'];
+          }
+          if (Object.keys(matchSpecs).length > 0) {
+            specQueries.push(matchSpecs);
+          }
+        }
+      }
+
+      const existingIds = [
+        ...viewedIds.map(id => new mongoose.Types.ObjectId(id)),
+        ...products.map(p => p._id),
+      ];
+
+      if (specQueries.length > 0) {
+        const additional = await Product.find({
+          status: 'active',
+          _id: { $nin: existingIds },
+          $or: specQueries,
+        })
+          .populate('category', 'name slug')
+          .populate('brand', 'name slug')
+          .sort({ rating: -1 })
+          .limit(limit - products.length)
+          .lean();
+        products = products.concat(additional);
+      }
     }
 
     // If still not enough, fall back to trending
     if (products.length < limit) {
+      const existingIds = [
+        ...viewedIds.map(id => new mongoose.Types.ObjectId(id)),
+        ...products.map(p => p._id),
+      ];
       const trending = await Product.find({
         status: 'active',
-        _id: { $nin: [...viewedIds.map(id => new mongoose.Types.ObjectId(id)), ...products.map(p => p._id)] },
+        _id: { $nin: existingIds },
         $or: [{ isTrending: true }, { isBestSeller: true }],
       })
         .populate('category', 'name slug')
@@ -165,7 +164,7 @@ class RecommendationService {
     return {
       strategy: 'content_based_filtering',
       strategyLabel: '🔍 Matches your playing style.',
-      strategyDescription: 'Based on the specifications you are interested in.',
+      strategyDescription: 'AI-powered recommendations based on spec similarity.',
       products,
       profile: 'gear_geek',
     };
@@ -280,6 +279,116 @@ class RecommendationService {
       products,
       profile: 'unclassified',
     };
+  }
+
+  /**
+   * Item-Based Collaborative Filtering algorithm
+   * Find accessories frequently interacted with the given product IDs.
+   */
+  async getFrequentlyPurchasedTogether(productIds: string[], limit: number = 4): Promise<any[]> {
+    if (!productIds || productIds.length === 0) return [];
+
+    // Convert to ObjectIds
+    const objectIds = productIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id));
+
+    // 1. Find all sessions that interacted with these products
+    // Interaction can be 'view', 'add_to_cart', 'checkout'
+    const logs = await BehaviorLog.find({
+      entityId: { $in: objectIds },
+      action: { $in: ['view', 'add_to_cart', 'checkout', 'click'] }
+    }).select('sessionId -_id').lean();
+
+    const sessionIds = [...new Set(logs.map(log => log.sessionId))];
+
+    if (sessionIds.length === 0) {
+      // Return trending accessories if no related sessions
+      return this.getTrendingAccessories(limit, objectIds);
+    }
+
+    // 2. Find other products interacted with in these sessions
+    const coInteractedLogs = await BehaviorLog.find({
+      sessionId: { $in: sessionIds },
+      entityId: { $nin: objectIds, $ne: null },
+      action: { $in: ['view', 'add_to_cart', 'checkout', 'click'] },
+      entityType: 'product'
+    }).select('entityId action').lean();
+
+    // Rank them based on frequency
+    // Weight: 'checkout' = 3, 'add_to_cart' = 2, 'view' = 1
+    const productScores: Record<string, number> = {};
+    for (const log of coInteractedLogs) {
+      if (!log.entityId) continue;
+      const pidStr = log.entityId.toString();
+      let weight = 1;
+      if (log.action === 'click') weight = 2;
+      if (log.action === 'add_to_cart') weight = 3;
+      if (log.action === 'checkout') weight = 4;
+
+      productScores[pidStr] = (productScores[pidStr] || 0) + weight;
+    }
+
+    const sortedProductIds = Object.keys(productScores).sort((a, b) => productScores[b] - productScores[a]);
+
+    if (sortedProductIds.length === 0) {
+      return this.getTrendingAccessories(limit, objectIds);
+    }
+
+    // 3. Filter for Accessories categories
+    // "Accessories" (Phụ Kiện), "Strings" (Cước), "Grips" (Quấn cán)
+    const accessoryCategories = await Category.find({
+      $or: [
+        { name: { $regex: /phụ kiện|cước|quấn cán|Shuttlecock|túi|Footwear|phụ trợ|Other accessories|grip|string|bag|sock/i } }
+      ]
+    }).select('_id').lean();
+
+    const accessoryCategoryIds = accessoryCategories.map(c => c._id);
+
+    let products: any[] = await Product.find({
+      _id: { $in: sortedProductIds.map(id => new mongoose.Types.ObjectId(id)) },
+      category: { $in: accessoryCategoryIds },
+      status: 'active'
+    })
+      .populate('category', 'name slug')
+      .populate('brand', 'name slug')
+      .lean();
+
+    // Sort products by the calculated scores
+    products.sort((a, b) => productScores[b._id.toString()] - productScores[a._id.toString()]);
+
+    // Limit
+    products = products.slice(0, limit);
+
+    // If we still don't have enough, pad with trending accessories
+    if (products.length < limit) {
+      const currentIds = products.map((p: any) => p._id);
+      const trendingAccessories = await this.getTrendingAccessories(limit - products.length, [...objectIds, ...currentIds]);
+      products = [...products, ...trendingAccessories];
+    }
+
+    return products;
+  }
+
+  private async getTrendingAccessories(limit: number, excludeIds: mongoose.Types.ObjectId[]): Promise<any[]> {
+    if (limit <= 0) return [];
+
+    const accessoryCategories = await Category.find({
+      $or: [
+        { name: { $regex: /phụ kiện|cước|quấn cán|Shuttlecock|túi|Footwear|phụ trợ|Other accessories|grip|string|bag|sock/i } }
+      ]
+    }).select('_id').lean();
+
+    const accessoryCategoryIds = accessoryCategories.map(c => c._id);
+
+    return Product.find({
+      status: 'active',
+      category: { $in: accessoryCategoryIds },
+      _id: { $nin: excludeIds }
+    })
+      .populate('category', 'name slug')
+      .populate('brand', 'name slug')
+      .sort({ reviewCount: -1, rating: -1, isBestSeller: -1 })
+      .limit(limit)
+      .lean();
   }
 }
 

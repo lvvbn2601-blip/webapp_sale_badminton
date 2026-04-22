@@ -465,6 +465,7 @@ export default function AdminPage() {
   };
 
   const handleDeleteUser = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this?")) return;
     if (!confirm("Are you sure you want to delete this user?")) return;
     if (usingMockData || !token) {
       setUsers(users.filter((u) => (u._id !== id && u.id !== id)));
@@ -623,6 +624,7 @@ export default function AdminPage() {
   };
 
   const removeProduct = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this?")) return;
     if (!confirm("Delete this product?")) return;
     const prev = products;
     setProducts((p: any) => p.filter((x: any) => ((x as any)._id || x.id) !== id));
@@ -709,6 +711,7 @@ export default function AdminPage() {
   };
 
   const removeBrand = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this?")) return;
     if (!confirm("Delete this brand?")) return;
     const prev = brands;
     setBrands((b) => b.filter((x) => (x._id || x.id) !== id));
@@ -795,6 +798,7 @@ export default function AdminPage() {
   };
 
   const removeCategory = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this?")) return;
     if (!confirm("Delete this category?")) return;
     const prev = categories;
     setCategories((c) => c.filter((x) => (x._id || x.id) !== id));

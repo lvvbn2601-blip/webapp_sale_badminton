@@ -107,6 +107,7 @@ export default function PurchasesPage() {
   }, [orders]);
 
   const handleCancel = async (orderId: string) => {
+    if (!window.confirm("Are you sure you want to delete this?")) return;
     if (!token || !confirm("Are you sure you want to cancel this order?")) return;
     setActionLoading(orderId);
     try {

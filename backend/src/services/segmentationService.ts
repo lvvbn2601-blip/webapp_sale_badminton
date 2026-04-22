@@ -3,86 +3,88 @@ import { redis } from '../config/redis';
 import { createNotification } from './notificationService';
 import { Coupon } from '../models/Coupon';
 
-// ── Thresholds for behavioral profile classification ─────────────────
-const GHOST_SHOPPER_MIN_VIEWS = 8;
-const GHOST_SHOPPER_MIN_SCROLL_SPEED = 1500; // px/s — fast scrolling
-const GHOST_SHOPPER_MAX_DEEP_CLICKS = 2;
+// ── Display mapping for behavioral profiles ──────────────────────────
+export const PROFILE_DISPLAY: Record<BehavioralProfile, { label: string; labelVi: string; emoji: string; color: string }> = {
+  ghost_shopper: { label: 'Ghost Shopper', labelVi: 'Người xem lướt', emoji: '👻', color: '#8b5cf6' },
+  gear_geek:     { label: 'Gear Geek',     labelVi: 'Chuyên gia thiết bị', emoji: '🔬', color: '#0ea5e9' },
+  brand_loyalist:{ label: 'Brand Loyalist', labelVi: 'Fan thương hiệu', emoji: '💎', color: '#f59e0b' },
+  beginner:      { label: 'Beginner',       labelVi: 'Người mới', emoji: '🌱', color: '#10b981' },
+  unclassified:  { label: 'New Visitor',    labelVi: 'Khách mới', emoji: '👤', color: '#94a3b8' },
+};
 
-const GEAR_GEEK_MIN_HOLD_DURATION = 15000; // 15s hold on spec areas
-const GEAR_GEEK_MIN_ENGAGEMENT = 15;
-const GEAR_GEEK_MIN_DEEP_CLICKS = 3;
+// ── Scoring weights (tuned for badminton e-commerce context) ─────────
+const WEIGHTS = {
+  // Ghost Shopper signals
+  ghost: {
+    highViews:       25,  // >= 8 page views
+    fastScroll:      25,  // scroll speed >= 1500 px/s
+    lowDeepClicks:   20,  // deep clicks <= 2
+    lowHoldTime:     15,  // max hold < 7.5s
+    lowEngagement:   15,  // engagement < 7.5
+  },
+  // Gear Geek signals
+  geek: {
+    longHold:        30,  // max hold duration >= 15s on spec areas
+    highEngagement:  25,  // engagement score >= 15
+    deepClicks:      20,  // deep clicks >= 3
+    totalDwell:      15,  // total hold across products >= 30s
+    premiumBias:     10,  // prefers premium over budget
+  },
+  // Brand Loyalist signals
+  loyalist: {
+    highAffinity:    35,  // top brand >= 70% of total brand score
+    moderateAffinity:20,  // top brand >= 50% of total brand score
+    highBrandFilter: 20,  // heavy use of brand filters
+    highBrandScore:  15,  // total brand interactions >= 20
+    sufficientData:  10,  // behavior score >= 20
+  },
+  // Beginner signals
+  beginner: {
+    multiCategory:   30,  // browsed 3+ categories
+    budgetFocus:     25,  // 50%+ views on budget products
+    lowActivity:     20,  // behavior score < 30 (still exploring)
+    someViews:       15,  // at least 5 page views
+    noPremium:       10,  // low premium affinity
+  },
+} as const;
 
-const BRAND_LOYALIST_MIN_AFFINITY_RATIO = 0.7; // 70%+ of behavior on one brand
-const BRAND_LOYALIST_MIN_SCORE = 20;
-
-const BEGINNER_MIN_CATEGORIES = 3; // Browse 3+ categories = exploring
-const BEGINNER_BUDGET_RATIO = 0.5; // 50%+ of views on budget products
+const MIN_CONFIDENCE = 25; // Minimum score to classify (out of 100)
 
 class SegmentationService {
   /**
-   * Recalculate both the legacy segment and the new behavioral profile.
+   * Recalculate the behavioral profile for a user.
+   * Uses a single-pass weighted scoring system instead of cascading if/else.
    */
   public async recalculateSegment(profile: ICustomerBehavior) {
-    // ── Legacy segment (kept for backward compat) ──
-    let segment: ICustomerBehavior['segment'] = 'Uncategorized';
+    // ── Compute profile signals ──
+    const signals = this.extractSignals(profile);
 
-    // Rule 1: Hesitant Customers (Added to cart, no checkout)
-    if (profile.cartAbandonment.isAbandoned) {
-      segment = 'Hesitant Customers';
-    } 
-    // Rule 2: About to leave (Not active for 14 days)
-    else if (Date.now() - profile.lastActive.getTime() > 14 * 24 * 60 * 60 * 1000) {
-      segment = 'About to leave';
-    }
-    else {
-      // Analyze behavior
-      let totalViewsHolds = profile.behaviorScore; 
-      
-      // Check top brand affinity
-      let topBrand = '';
-      let topBrandScore = 0;
-      profile.brandAffinities.forEach((score, brand) => {
-        if (score > topBrandScore) {
-          topBrandScore = score;
-          topBrand = brand;
-        }
-      });
+    // ── Score each profile type ──
+    const scores = this.computeScores(signals);
 
-      // Brand Enthusiasts: High score on specific brand, e.g., > 70% of behavior score
-      if (topBrandScore > 0 && topBrandScore / totalViewsHolds > 0.7 && totalViewsHolds > 20) {
-        segment = 'Brand Enthusiasts';
-      }
-      else if (totalViewsHolds > 30) {
-        // Distinguish Professional vs Potential Newcomer based on price or product type affinity
-        let accessoriesScore = profile.categoryAffinities.get('Accessories') || 0;
-        let gripScore = profile.categoryAffinities.get('Grip Wraps') || 0;
-        let racketScore = profile.categoryAffinities.get('Rackets') || 0;
+    // ── Pick best match ──
+    scores.sort((a, b) => b.score - a.score);
+    profile.behavioralProfile = scores[0].score >= MIN_CONFIDENCE
+      ? scores[0].profile
+      : 'unclassified';
 
-        if (accessoriesScore + gripScore > racketScore) {
-          segment = 'Potential Newcomers';
-        } else {
-          segment = 'Professional Customers';
-        }
-      }
-    }
-
-    profile.segment = segment;
-
-    // ── New Behavioral Profile Classification ──
-    profile.behavioralProfile = this.classifyBehavioralProfile(profile);
+    // ── Derive legacy segment from behavioral profile (backward compat) ──
+    profile.segment = this.deriveSegment(profile);
   }
 
   /**
-   * Classify user into one of 4 behavioral profiles from the strategy matrix.
+   * Extract normalized signals from the raw profile data.
+   * This single extraction step feeds all scoring functions,
+   * so we avoid re-reading the same Maps multiple times.
    */
-  private classifyBehavioralProfile(profile: ICustomerBehavior): BehavioralProfile {
+  private extractSignals(profile: ICustomerBehavior) {
     const totalViews = profile.totalPageViews || 0;
     const scrollSpeed = profile.scrollSpeedAvg || 0;
     const deepClicks = profile.deepClickCount || 0;
     const engagement = profile.engagementScore || 0;
     const behaviorScore = profile.behaviorScore || 0;
 
-    // ── Compute aggregate hold duration across all products ──
+    // Hold duration metrics
     let maxHoldDuration = 0;
     let totalHoldDuration = 0;
     let holdProductCount = 0;
@@ -92,7 +94,7 @@ class SegmentationService {
       if (duration > maxHoldDuration) maxHoldDuration = duration;
     });
 
-    // ── Compute brand affinity metrics ──
+    // Brand affinity metrics
     let topBrandScore = 0;
     let totalBrandScore = 0;
     let brandCount = 0;
@@ -103,7 +105,7 @@ class SegmentationService {
     });
     const brandAffinityRatio = totalBrandScore > 0 ? topBrandScore / totalBrandScore : 0;
 
-    // ── Compute brand filter metrics ──
+    // Brand filter usage metrics
     let topBrandFilterCount = 0;
     let totalFilterCount = 0;
     profile.filterBrandUsage.forEach((count) => {
@@ -112,7 +114,7 @@ class SegmentationService {
     });
     const brandFilterRatio = totalFilterCount > 0 ? topBrandFilterCount / totalFilterCount : 0;
 
-    // ── Compute price affinity metrics ──
+    // Price affinity metrics
     const budgetScore = profile.priceAffinities.get('budget') || 0;
     const midScore = profile.priceAffinities.get('mid') || 0;
     const premiumScore = profile.priceAffinities.get('premium') || 0;
@@ -120,161 +122,97 @@ class SegmentationService {
     const budgetRatio = totalPriceScore > 0 ? budgetScore / totalPriceScore : 0;
     const categoriesViewed = profile.viewedCategoryCount || 0;
 
-    // ════════════════════════════════════════════════════════════════════
-    // PHASE 1: Strict checks (original precise detection)
-    // ════════════════════════════════════════════════════════════════════
+    return {
+      totalViews, scrollSpeed, deepClicks, engagement, behaviorScore,
+      maxHoldDuration, totalHoldDuration, holdProductCount,
+      topBrandScore, totalBrandScore, brandCount, brandAffinityRatio,
+      topBrandFilterCount, totalFilterCount, brandFilterRatio,
+      budgetScore, premiumScore, totalPriceScore, budgetRatio,
+      categoriesViewed,
+    };
+  }
 
-    // ── 1. Gear Geek: Long hold times + high engagement + deep clicks ──
-    if (
-      maxHoldDuration >= GEAR_GEEK_MIN_HOLD_DURATION &&
-      engagement >= GEAR_GEEK_MIN_ENGAGEMENT &&
-      deepClicks >= GEAR_GEEK_MIN_DEEP_CLICKS
-    ) {
-      return 'gear_geek';
+  /**
+   * Compute confidence scores for each behavioral profile.
+   * Each signal contributes a weighted amount (0 or full weight).
+   * Partial credit is given via half-thresholds to handle users with incomplete data.
+   */
+  private computeScores(s: ReturnType<SegmentationService['extractSignals']>) {
+    const W = WEIGHTS;
+
+    // ── Ghost Shopper: Many views, fast scrolling, shallow engagement ──
+    let ghostScore = 0;
+    if (s.totalViews >= 8)           ghostScore += W.ghost.highViews;
+    else if (s.totalViews >= 4)      ghostScore += W.ghost.highViews * 0.5;
+    if (s.scrollSpeed >= 1500)       ghostScore += W.ghost.fastScroll;
+    else if (s.scrollSpeed >= 800)   ghostScore += W.ghost.fastScroll * 0.4;
+    if (s.deepClicks <= 2)           ghostScore += W.ghost.lowDeepClicks;
+    if (s.maxHoldDuration < 7500)    ghostScore += W.ghost.lowHoldTime;
+    if (s.engagement < 7.5)          ghostScore += W.ghost.lowEngagement;
+
+    // ── Gear Geek: Long hold times, high engagement, spec-area clicks ──
+    let geekScore = 0;
+    if (s.maxHoldDuration >= 15000)       geekScore += W.geek.longHold;
+    else if (s.maxHoldDuration >= 7500)   geekScore += W.geek.longHold * 0.5;
+    if (s.engagement >= 15)               geekScore += W.geek.highEngagement;
+    else if (s.engagement >= 7.5)         geekScore += W.geek.highEngagement * 0.5;
+    if (s.deepClicks >= 3)                geekScore += W.geek.deepClicks;
+    else if (s.deepClicks >= 1)           geekScore += W.geek.deepClicks * 0.5;
+    if (s.totalHoldDuration >= 30000 && s.holdProductCount >= 2) geekScore += W.geek.totalDwell;
+    if (s.premiumScore > s.budgetScore)   geekScore += W.geek.premiumBias;
+
+    // ── Brand Loyalist: Concentrated brand affinity ──
+    let loyalistScore = 0;
+    if (s.brandAffinityRatio >= 0.7)      loyalistScore += W.loyalist.highAffinity;
+    else if (s.brandAffinityRatio >= 0.5) loyalistScore += W.loyalist.moderateAffinity;
+    if (s.brandFilterRatio >= 0.5 && s.totalFilterCount >= 3)
+                                          loyalistScore += W.loyalist.highBrandFilter;
+    if (s.totalBrandScore >= 20)          loyalistScore += W.loyalist.highBrandScore;
+    else if (s.totalBrandScore >= 10)     loyalistScore += W.loyalist.highBrandScore * 0.5;
+    if (s.behaviorScore >= 20)            loyalistScore += W.loyalist.sufficientData;
+    else if (s.behaviorScore >= 10)       loyalistScore += W.loyalist.sufficientData * 0.5;
+
+    // ── Beginner: Multi-category, budget-focused, still exploring ──
+    let beginnerScore = 0;
+    if (s.categoriesViewed >= 3)          beginnerScore += W.beginner.multiCategory;
+    else if (s.categoriesViewed >= 2)     beginnerScore += W.beginner.multiCategory * 0.5;
+    if (s.budgetRatio >= 0.5)             beginnerScore += W.beginner.budgetFocus;
+    else if (s.budgetRatio >= 0.3)        beginnerScore += W.beginner.budgetFocus * 0.5;
+    if (s.behaviorScore < 30)             beginnerScore += W.beginner.lowActivity;
+    if (s.totalViews >= 5)                beginnerScore += W.beginner.someViews;
+    else if (s.totalViews >= 2)           beginnerScore += W.beginner.someViews * 0.5;
+    if (s.premiumScore <= s.budgetScore)  beginnerScore += W.beginner.noPremium;
+
+    return [
+      { profile: 'ghost_shopper'  as BehavioralProfile, score: ghostScore },
+      { profile: 'gear_geek'     as BehavioralProfile, score: geekScore },
+      { profile: 'brand_loyalist' as BehavioralProfile, score: loyalistScore },
+      { profile: 'beginner'      as BehavioralProfile, score: beginnerScore },
+    ];
+  }
+
+  /**
+   * Derive the legacy `segment` field from the behavioral profile + context.
+   * This keeps backward compatibility with the admin UI badge without
+   * maintaining a separate classification engine.
+   */
+  private deriveSegment(profile: ICustomerBehavior): ICustomerBehavior['segment'] {
+    // Time-based overrides (these are higher priority)
+    if (profile.cartAbandonment.isAbandoned) {
+      return 'Hesitant Customers';
+    }
+    if (Date.now() - profile.lastActive.getTime() > 14 * 24 * 60 * 60 * 1000) {
+      return 'About to leave';
     }
 
-    // ── 2. Brand Loyalist: High single-brand affinity OR heavy brand filter use ──
-    if (
-      (brandAffinityRatio >= BRAND_LOYALIST_MIN_AFFINITY_RATIO && behaviorScore >= BRAND_LOYALIST_MIN_SCORE) ||
-      (brandFilterRatio >= BRAND_LOYALIST_MIN_AFFINITY_RATIO && totalFilterCount >= 3)
-    ) {
-      return 'brand_loyalist';
+    // Map behavioral profile → legacy segment
+    switch (profile.behavioralProfile) {
+      case 'brand_loyalist': return 'Brand Enthusiasts';
+      case 'gear_geek':      return 'Professional Customers';
+      case 'beginner':       return 'Potential Newcomers';
+      case 'ghost_shopper':  return 'Potential Newcomers';
+      default:               return 'Uncategorized';
     }
-
-    // ── 3. Beginner: Multi-category browsing + budget-focused ──
-    if (
-      categoriesViewed >= BEGINNER_MIN_CATEGORIES &&
-      budgetRatio >= BEGINNER_BUDGET_RATIO &&
-      totalViews >= 5
-    ) {
-      return 'beginner';
-    }
-
-    // ── 4. Ghost Shopper: Many views, fast scrolling, few deep clicks ──
-    if (
-      totalViews >= GHOST_SHOPPER_MIN_VIEWS &&
-      scrollSpeed >= GHOST_SHOPPER_MIN_SCROLL_SPEED &&
-      deepClicks <= GHOST_SHOPPER_MAX_DEEP_CLICKS
-    ) {
-      return 'ghost_shopper';
-    }
-
-    // ════════════════════════════════════════════════════════════════════
-    // PHASE 2: Relaxed checks (for users with partial but sufficient data)
-    // Users who have meaningful behavioral data but don't meet ALL strict
-    // conditions should still be classified rather than left as 'unclassified'.
-    // ════════════════════════════════════════════════════════════════════
-
-    // ── Gear Geek (relaxed): Long hold times + high engagement ──
-    // Deep clicks may not be tracked if frontend only sends hover/dwell events
-    if (
-      maxHoldDuration >= GEAR_GEEK_MIN_HOLD_DURATION &&
-      (engagement >= GEAR_GEEK_MIN_ENGAGEMENT || behaviorScore >= 30)
-    ) {
-      return 'gear_geek';
-    }
-
-    // ── Gear Geek (via total dwell time): Spent significant time examining products ──
-    if (
-      totalHoldDuration >= GEAR_GEEK_MIN_HOLD_DURATION * 2 &&
-      holdProductCount >= 2 &&
-      behaviorScore >= 10
-    ) {
-      return 'gear_geek';
-    }
-
-    // ── Brand Loyalist (relaxed): Lower score threshold for synced profiles ──
-    // The syncRealBehaviors utility inflates behaviorScore via order history,
-    // so the affinity ratio remains the primary indicator.
-    if (
-      brandAffinityRatio >= 0.5 &&
-      totalBrandScore >= 10 &&
-      behaviorScore >= 10
-    ) {
-      return 'brand_loyalist';
-    }
-
-    // ── Beginner (relaxed): Multi-category browsing without requiring views ──
-    // For sync'd users who have order history across categories but no browsing data
-    if (
-      categoriesViewed >= BEGINNER_MIN_CATEGORIES &&
-      (budgetRatio >= 0.3 || totalPriceScore === 0) &&
-      behaviorScore >= 5
-    ) {
-      return 'beginner';
-    }
-
-    // ── Ghost Shopper (relaxed): High views + low engagement without scroll speed ──
-    // Scroll tracking may not always fire; high views + low deep clicks is enough
-    if (
-      totalViews >= GHOST_SHOPPER_MIN_VIEWS &&
-      deepClicks <= GHOST_SHOPPER_MAX_DEEP_CLICKS &&
-      engagement < GEAR_GEEK_MIN_ENGAGEMENT
-    ) {
-      return 'ghost_shopper';
-    }
-
-    // ════════════════════════════════════════════════════════════════════
-    // PHASE 3: Best-fit scoring (last resort before 'unclassified')
-    // If we have ANY meaningful behavioral data, compute a confidence
-    // score for each profile and pick the best match.
-    // ════════════════════════════════════════════════════════════════════
-
-    if (behaviorScore >= 5 || totalViews >= 3 || totalBrandScore >= 5) {
-      const scores: { profile: BehavioralProfile; score: number }[] = [];
-
-      // Gear Geek scoring
-      let gearGeekScore = 0;
-      if (maxHoldDuration >= GEAR_GEEK_MIN_HOLD_DURATION) gearGeekScore += 40;
-      else if (maxHoldDuration >= GEAR_GEEK_MIN_HOLD_DURATION / 2) gearGeekScore += 20;
-      if (engagement >= GEAR_GEEK_MIN_ENGAGEMENT) gearGeekScore += 30;
-      else if (engagement >= GEAR_GEEK_MIN_ENGAGEMENT / 2) gearGeekScore += 15;
-      if (deepClicks >= GEAR_GEEK_MIN_DEEP_CLICKS) gearGeekScore += 30;
-      else if (deepClicks >= 1) gearGeekScore += 15;
-      if (premiumScore > budgetScore) gearGeekScore += 10;
-      scores.push({ profile: 'gear_geek', score: gearGeekScore });
-
-      // Brand Loyalist scoring
-      let brandLoyalistScore = 0;
-      if (brandAffinityRatio >= BRAND_LOYALIST_MIN_AFFINITY_RATIO) brandLoyalistScore += 40;
-      else if (brandAffinityRatio >= 0.5) brandLoyalistScore += 25;
-      else if (brandAffinityRatio >= 0.3 && brandCount <= 3) brandLoyalistScore += 15;
-      if (behaviorScore >= BRAND_LOYALIST_MIN_SCORE) brandLoyalistScore += 30;
-      else if (behaviorScore >= 10) brandLoyalistScore += 15;
-      if (brandFilterRatio >= 0.5) brandLoyalistScore += 20;
-      if (totalBrandScore >= 20) brandLoyalistScore += 10;
-      scores.push({ profile: 'brand_loyalist', score: brandLoyalistScore });
-
-      // Beginner scoring
-      let beginnerScore = 0;
-      if (categoriesViewed >= BEGINNER_MIN_CATEGORIES) beginnerScore += 35;
-      else if (categoriesViewed >= 2) beginnerScore += 20;
-      if (budgetRatio >= BEGINNER_BUDGET_RATIO) beginnerScore += 35;
-      else if (budgetRatio >= 0.3) beginnerScore += 20;
-      if (totalViews >= 5) beginnerScore += 15;
-      else if (totalViews >= 2) beginnerScore += 8;
-      if (behaviorScore < 30) beginnerScore += 15; // Low activity = likely beginner
-      scores.push({ profile: 'beginner', score: beginnerScore });
-
-      // Ghost Shopper scoring
-      let ghostScore = 0;
-      if (totalViews >= GHOST_SHOPPER_MIN_VIEWS) ghostScore += 30;
-      else if (totalViews >= 4) ghostScore += 15;
-      if (scrollSpeed >= GHOST_SHOPPER_MIN_SCROLL_SPEED) ghostScore += 30;
-      if (deepClicks <= GHOST_SHOPPER_MAX_DEEP_CLICKS) ghostScore += 20;
-      if (maxHoldDuration < GEAR_GEEK_MIN_HOLD_DURATION / 2) ghostScore += 10;
-      if (engagement < GEAR_GEEK_MIN_ENGAGEMENT / 2) ghostScore += 10;
-      scores.push({ profile: 'ghost_shopper', score: ghostScore });
-
-      // Pick best-fit (minimum threshold of 30 to avoid random noise)
-      scores.sort((a, b) => b.score - a.score);
-      if (scores[0].score >= 30) {
-        return scores[0].profile;
-      }
-    }
-
-    // ── Truly insufficient data ──
-    return 'unclassified';
   }
 
   /**

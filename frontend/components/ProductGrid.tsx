@@ -13,9 +13,7 @@ type Props = {
   showControls?: boolean;
   sortBy?: string;
   onSortChange?: (sort: string) => void;
-  favorites?: string[];
   compareList?: Product[];
-  onToggleFavorite?: (product: Product) => void;
   onToggleCompare?: (product: Product) => void;
 };
 
@@ -36,9 +34,7 @@ export function ProductGrid({
   showControls = false,
   sortBy = "featured",
   onSortChange,
-  favorites = [],
   compareList = [],
-  onToggleFavorite,
   onToggleCompare,
 }: Props) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -170,9 +166,7 @@ export function ProductGrid({
               onAdd={onAdd}
               onQuickView={onQuickView}
               viewMode="grid"
-              isFavorite={favorites.includes(product.id || (product as any)._id)}
               isComparing={compareList.some(p => (p.id || (p as any)._id) === (product.id || (product as any)._id))}
-              onToggleFavorite={() => onToggleFavorite?.(product)}
               onToggleCompare={() => onToggleCompare?.(product)}
             />
           ))}
@@ -189,9 +183,7 @@ export function ProductGrid({
               onAdd={onAdd}
               onQuickView={onQuickView}
               viewMode="list"
-              isFavorite={favorites.includes(product.id || (product as any)._id)}
               isComparing={compareList.some(p => (p.id || (p as any)._id) === (product.id || (product as any)._id))}
-              onToggleFavorite={() => onToggleFavorite?.(product)}
               onToggleCompare={() => onToggleCompare?.(product)}
             />
           ))}

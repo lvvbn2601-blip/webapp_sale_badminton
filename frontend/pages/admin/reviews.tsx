@@ -371,6 +371,7 @@ export default function AdminReviewsPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this?")) return;
     if (!confirm("Are you sure you want to delete this review?")) return;
     if (usingMockData || !token) {
       setReviews(prev => prev.filter(r => r._id !== id));

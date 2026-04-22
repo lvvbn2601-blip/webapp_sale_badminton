@@ -4,7 +4,9 @@ import { ShoppingCart, Eye, Check, Heart, Scale } from "lucide-react";
 import { Product } from "../types";
 import { useState } from "react";
 import { useCart } from "../context/CartContext";
+import { useWishlist } from "../context/WishlistContext";
 import { fetchProductReviews } from "../lib/api";
+import { useTracking } from "../lib/useTracking";
 
 
 type Props = {
@@ -31,11 +33,33 @@ export function ProductCard({
   const [hovered, setHovered] = useState(false);
   const [added, setAdded] = useState(false);
   const cart = useCart();
+  const wishlist = useWishlist();
+  const { trackEvent } = useTracking();
+
+  const productId = product.id || (product as any)._id;
+  const isProdFavorite = isFavorite || wishlist.isInWishlist(productId);
+
+  const handleToggleFavorite = () => {
+    if (onToggleFavorite) {
+      onToggleFavorite();
+    } else {
+      if (wishlist.isInWishlist(productId)) {
+        wishlist.remove(productId);
+      } else {
+        wishlist.add(product);
+      }
+    }
+  };
 
   const brandName =
     typeof product.brand === "object"
       ? (product.brand as any)?.name
       : product.brand;
+
+  const categoryName =
+    typeof product.category === "object"
+      ? (product.category as any)?.name
+      : product.category;
 
   const handleAdd = async () => {
     if (added) return;
@@ -45,6 +69,10 @@ export function ProductCard({
       } else {
         await cart.add(product);
       }
+
+      const price = product.price || (product as any).basePrice || 0;
+      trackEvent('add_to_cart', product.id || (product as any)._id, 'product', { price, brand: brandName, category: categoryName });
+
       setAdded(true);
       setTimeout(() => setAdded(false), 2000);
     } catch (err) {
@@ -101,15 +129,15 @@ export function ProductCard({
       </Link>
 
       {/* Action buttons (Favorite & Compare) */}
-      <div className="absolute right-3 top-3 flex flex-col gap-2">
+      <div className="absolute right-3 top-3 flex flex-col gap-2 z-10">
         <button
-          onClick={(e) => { e.preventDefault(); onToggleFavorite?.(); }}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleFavorite(); }}
           className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-secondary shadow-sm backdrop-blur-sm transition-transform hover:scale-110"
         >
-          <Heart size={16} className={isFavorite ? "fill-red-500 text-red-500" : ""} />
+          <Heart size={16} className={isProdFavorite ? "fill-red-500 text-red-500" : ""} />
         </button>
         <button
-          onClick={(e) => { e.preventDefault(); onToggleCompare?.(); }}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCompare?.(); }}
           className={`flex h-8 w-8 items-center justify-center rounded-full shadow-sm backdrop-blur-sm transition-transform hover:scale-110 ${isComparing ? "bg-primary text-white" : "bg-white/90 text-secondary"
             }`}
         >
@@ -222,9 +250,14 @@ export function ProductCard({
               {added ? <Check size={18} /> : <ShoppingCart size={18} />}
               {added ? "Added" : "Add to Cart"}
             </button>
+
           </div>
         </div>
+
       )}
+
+
     </div>
+
   );
 }

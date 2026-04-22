@@ -135,6 +135,14 @@ type CategoryForm = {
   image: string;
 };
 
+const PROFILE_DISPLAY: Record<string, { label: string; emoji: string; bgClass: string; textClass: string; borderClass: string }> = {
+  ghost_shopper:  { label: 'Ghost Shopper',  emoji: '👻', bgClass: 'bg-violet-50',  textClass: 'text-violet-700',  borderClass: 'border-violet-200' },
+  gear_geek:      { label: 'Gear Geek',      emoji: '🔬', bgClass: 'bg-sky-50',     textClass: 'text-sky-700',     borderClass: 'border-sky-200' },
+  brand_loyalist: { label: 'Brand Loyalist',  emoji: '💎', bgClass: 'bg-amber-50',   textClass: 'text-amber-700',   borderClass: 'border-amber-200' },
+  beginner:       { label: 'Beginner',        emoji: '🌱', bgClass: 'bg-emerald-50', textClass: 'text-emerald-700', borderClass: 'border-emerald-200' },
+  unclassified:   { label: 'New Visitor',     emoji: '👤', bgClass: 'bg-gray-50',    textClass: 'text-gray-600',    borderClass: 'border-gray-200' },
+};
+
 export default function AdminUsersPage() {
   const router = useRouter();
 
@@ -482,6 +490,7 @@ export default function AdminUsersPage() {
   };
 
   const handleDeleteUser = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this?")) return;
     if (!confirm("Are you sure you want to delete this user?")) return;
     if (usingMockData || !token) {
       setUsers(users.filter((u) => (u._id !== id && u.id !== id)));
@@ -640,6 +649,7 @@ export default function AdminUsersPage() {
   };
 
   const removeProduct = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this?")) return;
     if (!confirm("Delete this product?")) return;
     const prev = products;
     setProducts((p: any) => p.filter((x: any) => ((x as any)._id || x.id) !== id));
@@ -726,6 +736,7 @@ export default function AdminUsersPage() {
   };
 
   const removeBrand = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this?")) return;
     if (!confirm("Delete this brand?")) return;
     const prev = brands;
     setBrands((b) => b.filter((x) => (x._id || x.id) !== id));
@@ -812,6 +823,7 @@ export default function AdminUsersPage() {
   };
 
   const removeCategory = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this?")) return;
     if (!confirm("Delete this category?")) return;
     const prev = categories;
     setCategories((c) => c.filter((x) => (x._id || x.id) !== id));
@@ -1059,11 +1071,14 @@ export default function AdminUsersPage() {
                           <div className="flex flex-col gap-1 items-start">
                             <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${u.role === "admin" ? "bg-red-100 text-red-700" : u.role === "warehouse_staff" ? "bg-orange-100 text-orange-700" : u.role === "knitter" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-700"}`}>{u.role || "user"}</span>
                             <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider ${tierColors[u.membershipTier || "Member"]}`}>{u.membershipTier || "Member"}</span>
-                            {u.behavior?.segment && (
-                              <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider bg-indigo-100 text-indigo-700 border border-indigo-200 mt-0.5">
-                                🎯 {u.behavior.segment}
-                              </span>
-                            )}
+                            {u.behavior?.behavioralProfile && u.behavior.behavioralProfile !== 'unclassified' && (() => {
+                              const pd = PROFILE_DISPLAY[u.behavior.behavioralProfile] || PROFILE_DISPLAY.unclassified;
+                              return (
+                                <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider ${pd.bgClass} ${pd.textClass} border ${pd.borderClass} mt-0.5`}>
+                                  {pd.emoji} {pd.label}
+                                </span>
+                              );
+                            })()}
                           </div>
                         </td>
                         <td className="px-6 py-4 font-semibold">${calculateLtv(u.email).toLocaleString()}</td>
@@ -1356,69 +1371,100 @@ export default function AdminUsersPage() {
 
               {userDrawerTab === "behavior" && (
                 <div className="space-y-6">
-                  {selectedUser.behavior ? (
+                  {selectedUser.behavior ? (() => {
+                    const bp = selectedUser.behavior.behavioralProfile || 'unclassified';
+                    const pd = PROFILE_DISPLAY[bp] || PROFILE_DISPLAY.unclassified;
+                    return (
                     <div className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm space-y-4">
-                      <h4 className="font-semibold text-secondary flex items-center gap-2">
-                        🎯 Segmentation Profile
-                      </h4>
-                      <div className="grid gap-3 text-sm">
-                        <div className="flex justify-between p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
-                          <span className="text-indigo-800 font-semibold">Active Segment</span>
-                          <span className="font-bold text-indigo-900 bg-white px-2 py-1 rounded shadow-sm border border-indigo-100">
+                      {/* ── Behavioral Profile Hero ── */}
+                      <div className={`flex items-center gap-3 p-4 rounded-xl border ${pd.borderClass} ${pd.bgClass}`}>
+                        <span className="text-3xl">{pd.emoji}</span>
+                        <div className="flex-1">
+                          <h4 className={`font-bold text-lg ${pd.textClass}`}>{pd.label}</h4>
+                          <p className="text-xs text-secondary/60 mt-0.5">
+                            {bp === 'ghost_shopper' && 'Browses many products quickly without detailed engagement'}
+                            {bp === 'gear_geek' && 'Spends time examining specs, reviews, and product details'}
+                            {bp === 'brand_loyalist' && 'Strong preference for specific brands'}
+                            {bp === 'beginner' && 'Exploring multiple categories with budget-oriented browsing'}
+                            {bp === 'unclassified' && 'Not enough behavioral data to classify yet'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* ── Key Metrics Grid ── */}
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="p-3 bg-gray-50 border border-gray-100 rounded-xl text-center">
+                          <span className="block text-[10px] text-secondary/50 font-semibold mb-1 uppercase">Behavior</span>
+                          <span className="text-lg font-black text-secondary">{Math.round(selectedUser.behavior.behaviorScore || 0)}</span>
+                        </div>
+                        <div className="p-3 bg-gray-50 border border-gray-100 rounded-xl text-center">
+                          <span className="block text-[10px] text-secondary/50 font-semibold mb-1 uppercase">Engagement</span>
+                          <span className="text-lg font-black text-secondary">{Math.round(selectedUser.behavior.engagementScore || 0)}</span>
+                        </div>
+                        <div className="p-3 bg-gray-50 border border-gray-100 rounded-xl text-center">
+                          <span className="block text-[10px] text-secondary/50 font-semibold mb-1 uppercase">Orders</span>
+                          <span className="text-lg font-black text-secondary">{selectedUser.behavior.rfmScore?.frequency || 0}</span>
+                        </div>
+                      </div>
+
+                      {/* ── Legacy Segment + RFM ── */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex justify-between items-center p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+                          <span className="text-indigo-800 font-semibold text-xs">Segment</span>
+                          <span className="font-bold text-indigo-900 bg-white px-2 py-1 rounded shadow-sm border border-indigo-100 text-xs">
                             {selectedUser.behavior.segment}
                           </span>
                         </div>
-                        <div className="grid grid-cols-2 gap-3 mt-2">
-                          <div className="p-3 bg-gray-50 border border-gray-100 rounded-xl">
-                            <span className="block text-xs text-secondary/60 font-semibold mb-1 uppercase">Behavior Score</span>
-                            <span className="text-xl font-black text-secondary">{Math.round(selectedUser.behavior.behaviorScore || 0)}</span>
-                          </div>
-                          <div className="p-3 bg-gray-50 border border-gray-100 rounded-xl">
-                            <span className="block text-xs text-secondary/60 font-semibold mb-1 uppercase">RFM Monetary</span>
-                            <span className="text-xl font-black text-secondary whitespace-nowrap">
-                              ${selectedUser.behavior.rfmScore?.monetary ? (selectedUser.behavior.rfmScore.monetary / 25000).toLocaleString() : 0}
-                            </span>
-                          </div>
-                        </div>
-                        {selectedUser.behavior.cartAbandonment?.isAbandoned && (
-                          <div className="p-3 bg-red-50 border border-red-100 rounded-xl mt-2 flex items-center justify-between">
-                            <span className="text-red-800 font-semibold text-xs flex items-center gap-1.5">
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                              Cart Abandoned
-                            </span>
-                            <span className="text-xs text-red-600 font-medium bg-white px-2 py-0.5 rounded border border-red-100">Found pending items</span>
-                          </div>
-                        )}
-                        <div className="mt-4 border-t border-black/5 pt-4">
-                          <h5 className="text-xs font-bold text-secondary/70 uppercase mb-3">Top Affinities</h5>
-                          {Object.keys(selectedUser.behavior.brandAffinities || {}).length > 0 || Object.keys(selectedUser.behavior.categoryAffinities || {}).length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                              {Object.entries(selectedUser.behavior.brandAffinities || {})
-                                .sort((a: any, b: any) => b[1] - a[1])
-                                .map(([brand, score]: any) => (
-                                  <span key={brand} className="text-xs font-medium bg-primary/10 text-primary px-2.5 py-1.5 rounded-lg border border-primary/20 flex flex-col">
-                                    <span className="opacity-70 text-[10px] uppercase leading-none mb-0.5">Brand</span>
-                                    <span>{brand} <span className="opacity-60 ml-0.5">({score.toFixed(1)})</span></span>
-                                  </span>
-                                ))}
-                              {Object.entries(selectedUser.behavior.categoryAffinities || {})
-                                .sort((a: any, b: any) => b[1] - a[1])
-                                .map(([cat, score]: any) => (
-                                  <span key={cat} className="text-xs font-medium bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-lg border border-emerald-200 flex flex-col">
-                                    <span className="opacity-70 text-[10px] uppercase leading-none mb-0.5">Category</span>
-                                    <span>{cat} <span className="opacity-60 ml-0.5">({score.toFixed(1)})</span></span>
-                                  </span>
-                                ))}
-                            </div>
-                          ) : <span className="text-xs text-secondary/50 italic">No deep affinities tracked yet.</span>}
+                        <div className="flex justify-between items-center p-3 bg-gray-50 border border-gray-100 rounded-xl">
+                          <span className="text-secondary/70 font-semibold text-xs">RFM Monetary</span>
+                          <span className="font-bold text-secondary bg-white px-2 py-1 rounded shadow-sm border border-gray-100 text-xs">
+                            ${selectedUser.behavior.rfmScore?.monetary ? (selectedUser.behavior.rfmScore.monetary / 25000).toLocaleString() : 0}
+                          </span>
                         </div>
                       </div>
+
+                      {/* ── Cart Abandonment Alert ── */}
+                      {selectedUser.behavior.cartAbandonment?.isAbandoned && (
+                        <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-center justify-between">
+                          <span className="text-red-800 font-semibold text-xs flex items-center gap-1.5">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                            Cart Abandoned
+                          </span>
+                          <span className="text-xs text-red-600 font-medium bg-white px-2 py-0.5 rounded border border-red-100">Found pending items</span>
+                        </div>
+                      )}
+
+                      {/* ── Top Affinities ── */}
+                      <div className="border-t border-black/5 pt-4">
+                        <h5 className="text-xs font-bold text-secondary/70 uppercase mb-3">Top Affinities</h5>
+                        {Object.keys(selectedUser.behavior.brandAffinities || {}).length > 0 || Object.keys(selectedUser.behavior.categoryAffinities || {}).length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {Object.entries(selectedUser.behavior.brandAffinities || {})
+                              .sort((a: any, b: any) => b[1] - a[1])
+                              .map(([brand, score]: any) => (
+                                <span key={brand} className="text-xs font-medium bg-primary/10 text-primary px-2.5 py-1.5 rounded-lg border border-primary/20 flex flex-col">
+                                  <span className="opacity-70 text-[10px] uppercase leading-none mb-0.5">Brand</span>
+                                  <span>{brand} <span className="opacity-60 ml-0.5">({score.toFixed(1)})</span></span>
+                                </span>
+                              ))}
+                            {Object.entries(selectedUser.behavior.categoryAffinities || {})
+                              .sort((a: any, b: any) => b[1] - a[1])
+                              .map(([cat, score]: any) => (
+                                <span key={cat} className="text-xs font-medium bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-lg border border-emerald-200 flex flex-col">
+                                  <span className="opacity-70 text-[10px] uppercase leading-none mb-0.5">Category</span>
+                                  <span>{cat} <span className="opacity-60 ml-0.5">({score.toFixed(1)})</span></span>
+                                </span>
+                              ))}
+                          </div>
+                        ) : <span className="text-xs text-secondary/50 italic">No deep affinities tracked yet.</span>}
+                      </div>
                     </div>
-                  ) : (
+                    );
+                  })() : (
                     <div className="p-8 text-center bg-gray-50 rounded-2xl border border-gray-100 flex flex-col items-center justify-center">
                       <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-3xl shadow-sm border border-black/5 mb-3 opacity-50">🕵️</div>
                       <h4 className="font-bold text-secondary">No Behavior Data</h4>
-                      <p className="text-sm text-secondary/50 mt-1 max-w-xs">This user hasn't generated enough events or tracked actions to be segmented yet.</p>
+                      <p className="text-sm text-secondary/50 mt-1 max-w-xs">This user hasn&#39;t generated enough events or tracked actions to be segmented yet.</p>
                       <button className="btn-outline text-xs py-1.5 px-3 bg-white mt-4">Refresh Profile</button>
                     </div>
                   )}

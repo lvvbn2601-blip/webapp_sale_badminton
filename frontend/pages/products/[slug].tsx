@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Layout } from "../../components/Layout";
 import { products as mockProducts } from "../../data/mockData";
 import { ProductGrid } from "../../components/ProductGrid";
+import { SimilarProducts } from "../../components/SimilarProducts";
 import { ReviewCard } from "../../components/ReviewCard";
 import {
   Minus, Plus, Star, ShoppingCart, Zap, Truck, RotateCcw, Shield,
@@ -405,7 +406,6 @@ export default function ProductDetailPage({ product, related, allCategoryProduct
                 {categoryName && (
                   <Link href={`/products?category=${categorySlug || ""}`} className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary transition hover:bg-primary/10">{categoryName}</Link>
                 )}
-                <span className="rounded-full bg-gray-800 px-3 py-1 text-xs font-bold text-white">{categoryLabel}</span>
               </div>
               <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 leading-tight tracking-tight mb-2">{product.name}</h1>
               <div className="flex items-center gap-3">
@@ -750,7 +750,14 @@ export default function ProductDetailPage({ product, related, allCategoryProduct
         </div>
       </section>
 
-      {/* Smart Recommendations Section */}
+      {/* Content-Based Similar Products (AI Engine) */}
+      <SimilarProducts
+        productId={product.id || (product as any)._id}
+        currentSlug={product.slug}
+        limit={6}
+      />
+/*
+      {/* Smart Recommendations Section 
       {(recommendedProducts.length > 0 || related.length > 0) && (
         <section className="section-padding bg-background">
           <div className="container-default space-y-6">
@@ -769,7 +776,7 @@ export default function ProductDetailPage({ product, related, allCategoryProduct
           </div>
         </section>
       )}
-
+      */}
       {/* Smart Voucher Popup */}
       <SmartVoucherPopup vouchers={smartVouchers} />
     </Layout>

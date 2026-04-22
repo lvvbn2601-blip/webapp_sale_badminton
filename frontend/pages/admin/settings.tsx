@@ -131,6 +131,7 @@ export default function AdminSettingsPage() {
   };
 
   const handleDeleteUser = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this?")) return;
     const t = localStorage.getItem("accessToken");
     if (!t) return;
     if (confirm("Are you sure you want to remove this staff? This will change their role to 'user'.")) {

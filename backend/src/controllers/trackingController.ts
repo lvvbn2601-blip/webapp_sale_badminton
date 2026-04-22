@@ -161,3 +161,29 @@ export const trackBatchEvents = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
+
+/**
+ * Frequently Purchased Together endpoint for Shopping Cart / Checkout page.
+ */
+export const getFrequentlyPurchasedTogether = async (req: Request, res: Response) => {
+  try {
+    const { productIds } = req.query; // Expecting comma separated product IDs
+    
+    if (!productIds || typeof productIds !== 'string') {
+      return res.status(400).json({ success: false, message: 'productIds query parameter required (comma separated)' });
+    }
+
+    const ids = productIds.split(',').map(id => id.trim()).filter(Boolean);
+    const limit = Number(req.query.limit) || 4;
+
+    const products = await recommendationService.getFrequentlyPurchasedTogether(ids, limit);
+
+    res.status(200).json({
+      success: true,
+      recommendations: products
+    });
+  } catch (error) {
+    console.error('Frequently Purchased Together error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};

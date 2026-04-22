@@ -8,6 +8,7 @@ import { OrderItem } from "../models/OrderItem";
 import { ok } from "../utils/apiResponse";
 import { ApiError } from "../utils/apiError";
 import { cacheGet, cacheSet } from "../utils/cache";
+import { findSimilarProducts } from "../services/similarityEngine";
 
 export const listProducts = asyncHandler(async (req: Request, res: Response) => {
   const { page, limit, category, brand, search } = req.query;
@@ -189,4 +190,31 @@ export const bestSellers = asyncHandler(async (_req: Request, res: Response) => 
 
   await cacheSet(CACHE_KEY, result, 300); // Cache for 5 minutes
   res.json(ok(result));
+});
+
+/**
+ * Similar Products — content-based recommendation using category-specific
+ * weighted similarity schemas.
+ *
+ * Returns products that are most similar to the given product based on:
+ * - For Rackets: stiffness, balance point, weight, tension, brand, price
+ * - For Shoes: features, price, gender, brand
+ * - For Bags: bag type, capacity, features, brand, price
+ * - For Shuttlecocks: type, speed, brand, packaging
+ * - For Accessories: accessory type, thickness, feel
+ */
+export const getSimilarProducts = asyncHandler(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const limit = Number(req.query.limit) || 6;
+
+  const result = await findSimilarProducts(id, limit);
+
+  res.json(ok({
+    source: result.source,
+    schema: result.schema,
+    products: result.results.map(r => ({
+      ...r.product,
+      similarityScore: Math.round(r.score * 100) / 100,
+    })),
+  }));
 });

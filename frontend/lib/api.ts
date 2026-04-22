@@ -601,3 +601,47 @@ export const simulatePayment = async (orderId: string, provider: string, token: 
   return data.data;
 };
 
+// ── Tracking Recommendations ──────────────────────────────
+export const fetchFrequentlyPurchasedTogether = async (productIds: string[], limit: number = 4) => {
+  if (!productIds || productIds.length === 0) return [];
+  const { data } = await api.get("/tracking/frequently-purchased", {
+    params: { productIds: productIds.join(','), limit }
+  });
+  return data.recommendations as Product[];
+};
+
+// ── Content-Based Similarity ──────────────────────────────
+export const fetchSimilarProducts = async (productId: string, limit: number = 6): Promise<{
+  source: { id: string; name: string; category: string };
+  schema: string;
+  products: (Product & { similarityScore?: number })[];
+}> => {
+  if (!productId) return { source: { id: '', name: '', category: '' }, schema: '', products: [] };
+  const { data } = await api.get(`/products/${productId}/similar`, {
+    params: { limit }
+  });
+  return data.data;
+};
+
+// ── Wishlist ──────────────────────────────────────────────
+export const fetchWishlist = async (token: string) => {
+  const { data } = await api.get("/wishlist", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+export const addToWishlist = async (productId: string, token: string) => {
+  const { data } = await api.post("/wishlist/add", { productId }, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+export const removeFromWishlist = async (productId: string, token: string) => {
+  const { data } = await api.delete("/wishlist/remove", {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { productId },
+  });
+  return data.data;
+};

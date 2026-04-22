@@ -12,6 +12,8 @@ import { useCart } from "../context/CartContext";
 import { createOrder, fetchProfile, fetchPublicCoupons, createVnPayPayment, createMoMoPayment, simulatePayment } from "../lib/api";
 import { VariantOptions } from "../types";
 import { useTracking } from "../lib/useTracking";
+import { FrequentlyPurchasedTogether } from "../components/FrequentlyPurchasedTogether";
+import { Footer } from "../components/Footer";
 
 const SHOP_NAME = "Badminton Hub";
 
@@ -232,7 +234,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     fetchPublicCoupons().then(setCoupons).catch(() => { });
     // Fetch smart vouchers for checkout context
-    fetchSmartVouchers(selectedItems).catch(() => {});
+    fetchSmartVouchers(selectedItems).catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -1033,6 +1035,8 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+
+
             </section>
           </div>
 
@@ -1176,10 +1180,17 @@ export default function CheckoutPage() {
               <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
               <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> Authentic</span>
             </div>
-          </div>
 
+
+          </div>
         </div>
       </main>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <FrequentlyPurchasedTogether
+          productIds={items.map(item => item.product.id || (item.product as any)._id)}
+        />
+      </div>
+
 
       {/* TOAST NOTIFICATION */}
       {toast.show && (
@@ -1392,6 +1403,7 @@ export default function CheckoutPage() {
           </div>
         </aside>
       </div>
+      <Footer />
     </div>
   );
 }

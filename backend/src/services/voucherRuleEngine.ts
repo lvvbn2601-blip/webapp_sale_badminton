@@ -72,8 +72,8 @@ class VoucherRuleEngine {
             code: 'WELCOME50K',
             type: 'WELCOME',
             value: 2, // $2 ~ 50K VND
-            message: 'Chào mừng bạn mới! Giảm 50K₫ + miễn phí vận chuyển',
-            description: 'Áp dụng cho đơn hàng từ 500K₫. Chỉ 1 lần/khách hàng.',
+            message: 'Welcome new customer! 50,000 VND discount + free shipping',
+            description: 'Apply for orders over 20usd. Only 1 time/customer.',
             urgency: 'medium',
             icon: '🎉',
           });
@@ -84,7 +84,7 @@ class VoucherRuleEngine {
     // ── Rule B: Cart Abandonment Recovery (COMEBACK5) ──
     if (profile?.cartAbandonment.isAbandoned && profile.cartAbandonment.lastAddedAt) {
       const hoursSinceAbandoned = (Date.now() - new Date(profile.cartAbandonment.lastAddedAt).getTime()) / (1000 * 60 * 60);
-      
+
       if (hoursSinceAbandoned >= 2) {
         const comebackCoupon = await Coupon.findOne({ code: 'COMEBACK5', status: 'running' });
         if (comebackCoupon) {
@@ -103,8 +103,8 @@ class VoucherRuleEngine {
               type: 'DISCOUNT_PERCENT',
               value: 5,
               maxDiscount: 4, // ~100K VND
-              message: 'Giảm 5% để hoàn tất giỏ hàng!',
-              description: 'Mã giảm giá đặc biệt cho bạn. Tối đa 100K₫.',
+              message: 'Get a 5% discount to complete your shopping cart!',
+              description: 'Special discount code for you. Maximum 4usd.',
               expiresIn: 24,
               urgency: 'high',
               icon: '⏰',
@@ -130,8 +130,8 @@ class VoucherRuleEngine {
       appliedVouchers.push({
         code: 'COMBO_STRING',
         type: 'CROSS_SELL',
-        message: 'Mua thêm dây cước để được miễn phí dịch vụ căng vợt!',
-        description: 'Combo Vợt + Dây = Miễn phí căng dây tại shop.',
+        message: 'Buy extra strings and get free racket stringing service!',
+        description: 'Combo Racket + String = Free stringing service at shop.',
         urgency: 'medium',
         icon: '🏸',
       });
@@ -141,8 +141,8 @@ class VoucherRuleEngine {
     if (profile && profile.engagementScore >= 15) {
       const budgetScore = profile.priceAffinities.get('budget') || 0;
       const totalPriceScore = (profile.priceAffinities.get('budget') || 0) +
-                              (profile.priceAffinities.get('mid') || 0) +
-                              (profile.priceAffinities.get('premium') || 0);
+        (profile.priceAffinities.get('mid') || 0) +
+        (profile.priceAffinities.get('premium') || 0);
       const budgetRatio = totalPriceScore > 0 ? budgetScore / totalPriceScore : 0;
 
       // High engagement but focused on low-value items — nudge them to bundle
@@ -151,8 +151,8 @@ class VoucherRuleEngine {
           code: 'BUNDLE10',
           type: 'BUNDLE_DEAL',
           value: 10,
-          message: 'Mua 2 Grip Tape - Giảm ngay 10% tổng đơn!',
-          description: 'Áp dụng khi mua 2 sản phẩm grip tape trở lên.',
+          message: 'Buy 2 Grip Tapes - Get 10% off your total order!',
+          description: 'Apply when buying 2 or more grip tape products.',
           urgency: 'low',
           icon: '🎯',
         });
@@ -165,8 +165,8 @@ class VoucherRuleEngine {
       type: 'PAYMENT_SPECIFIC',
       value: 0.8, // ~20K VND
       gateways: ['MoMo', 'VNPay'],
-      message: 'Giảm ngay 20K₫ khi thanh toán qua MoMo hoặc VNPay',
-      description: 'Khuyến mãi thanh toán điện tử. Không cần nhập mã.',
+      message: 'Get an instant 1usd discount when paying via MoMo or VNPay.',
+      description: 'Electronic payment promotion. No code required.',
       urgency: 'low',
       icon: '💳',
     });

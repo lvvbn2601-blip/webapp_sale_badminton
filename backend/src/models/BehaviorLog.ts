@@ -3,9 +3,9 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IBehaviorLog extends Document {
   userId?: mongoose.Types.ObjectId;
   sessionId: string;
-  action: 'view' | 'click' | 'add_to_cart' | 'checkout' | 'scroll' | 'hover' | 'filter_use' | 'dwell';
+  action: 'view' | 'click' | 'add_to_cart' | 'checkout' | 'scroll' | 'hover' | 'filter_use' | 'dwell' | 'leave';
   entityId?: mongoose.Types.ObjectId; // E.g., Product ID
-  entityType?: 'product' | 'category' | 'brand';
+  entityType?: 'product' | 'category' | 'brand' | 'order' | 'page';
   metadata: {
     duration?: number; // Time spent in ms
     scrollDepth?: number;
@@ -26,11 +26,11 @@ const behaviorLogSchema = new Schema<IBehaviorLog>({
   sessionId: { type: String, required: true },
   action: { 
     type: String, 
-    enum: ['view', 'click', 'add_to_cart', 'checkout', 'scroll', 'hover', 'filter_use', 'dwell'], 
+    enum: ['view', 'click', 'add_to_cart', 'checkout', 'scroll', 'hover', 'filter_use', 'dwell', 'leave'], 
     required: true 
   },
   entityId: { type: Schema.Types.ObjectId, required: false },
-  entityType: { type: String, enum: ['product', 'category', 'brand'], required: false },
+  entityType: { type: String, enum: ['product', 'category', 'brand', 'order', 'page'], required: false },
   metadata: {
     duration: { type: Number },
     scrollDepth: { type: Number },

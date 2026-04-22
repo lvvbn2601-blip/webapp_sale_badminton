@@ -11,6 +11,7 @@ router.get("/trending", ProductController.trending);
 router.get("/best-sellers", ProductController.bestSellers);
 router.get("/category/:id", ProductController.listByCategory);
 router.get("/slug/:slug", ProductController.getProductBySlug);
+router.get("/:id/similar", ProductController.getSimilarProducts);
 router.get("/:id", ProductController.getProduct);
 
 router.post("/", authenticate, authorize(["admin", "warehouse_staff"]), ProductController.createProduct);

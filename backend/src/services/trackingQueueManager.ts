@@ -20,7 +20,12 @@ const processTrackingEvent = async (job: Job) => {
   const data: Partial<IBehaviorLog> = job.data;
 
   // 1. Log behavior to MongoDB
-  await BehaviorLog.create(data);
+  // Use try/catch so a logging failure doesn't prevent profile updates
+  try {
+    await BehaviorLog.create(data);
+  } catch (logErr) {
+    console.warn('BehaviorLog.create failed (non-fatal):', (logErr as Error).message);
+  }
 
   // 2. Fetch or create CustomerBehavior profile prioritizing userId over sessionId
   let profile;
@@ -57,6 +62,8 @@ const processTrackingEvent = async (job: Job) => {
 
   // 3. Update scores and affinities based on action
   let weight = 0;
+  let skipDurationMultiplier = false;
+
   switch (data.action) {
     case 'view':
       weight = 1;
@@ -77,11 +84,15 @@ const processTrackingEvent = async (job: Job) => {
     case 'scroll':
       weight = 0.5;
       // Track scroll speed for ghost shopper detection
+      // Use exponential moving average (EMA) with alpha=0.3 for stable estimation
       if (data.metadata?.scrollSpeed) {
         const prevAvg = profile.scrollSpeedAvg || 0;
-        const totalViews = profile.totalPageViews || 1;
-        // Running average of scroll speed
-        profile.scrollSpeedAvg = ((prevAvg * (totalViews - 1)) + data.metadata.scrollSpeed) / totalViews;
+        if (prevAvg === 0) {
+          profile.scrollSpeedAvg = data.metadata.scrollSpeed;
+        } else {
+          const alpha = 0.3;
+          profile.scrollSpeedAvg = alpha * data.metadata.scrollSpeed + (1 - alpha) * prevAvg;
+        }
       }
       break;
 
@@ -105,7 +116,9 @@ const processTrackingEvent = async (job: Job) => {
 
     case 'dwell':
       // Passive dwell time tracking (time spent on a page section)
+      // Dwell contributes to hold duration but not to behaviorScore directly
       weight = 0;
+      skipDurationMultiplier = true; // Don't let duration inflate behaviorScore
       if (data.metadata?.duration && data.entityId) {
         const productIdStr = String(data.entityId);
         const currentDuration = profile.holdDurations.get(productIdStr) || 0;
@@ -128,33 +141,52 @@ const processTrackingEvent = async (job: Job) => {
 
     case 'add_to_cart':
       weight = 5;
+      // Only reset notification flags if this is a NEW abandonment cycle
+      // (prevents re-triggering notifications for users who keep adding items)
+      if (!profile.cartAbandonment.isAbandoned) {
+        profile.cartAbandonment.notified30Min = false;
+        profile.cartAbandonment.notified2Hour = false;
+        profile.cartAbandonment.voucherSent = false;
+      }
       profile.cartAbandonment.isAbandoned = true;
       profile.cartAbandonment.lastAddedAt = new Date();
-      profile.cartAbandonment.notified30Min = false;
-      profile.cartAbandonment.notified2Hour = false;
-      profile.cartAbandonment.voucherSent = false;
       break;
 
     case 'checkout':
       weight = 10;
+      // Clear cart abandonment — user completed purchase
       profile.cartAbandonment.isAbandoned = false;
       profile.hasCompletedCheckout = true;
+      // Update RFM monetary value with the actual order total
+      if (data.metadata?.price) {
+        profile.rfmScore.monetary += data.metadata.price;
+      }
+      break;
+
+    case 'leave':
+      // Page leave event — useful for session duration tracking
+      // Low weight, no special processing needed
+      weight = 0;
+      skipDurationMultiplier = true;
       break;
   }
 
-  // Multiply by duration if provided (up to a cap)
-  if (data.metadata?.duration) {
+  // Add duration multiplier for engagement-heavy events (up to a cap)
+  if (!skipDurationMultiplier && data.metadata?.duration) {
     const durationMultiplier = Math.min(Math.max(data.metadata.duration / 1000, 1), 60); // Max 60s
     weight += durationMultiplier * 0.1;
   }
 
   profile.behaviorScore += weight;
 
-  // Update Engagement Score (weighted combination)
-  const dwellWeight = data.metadata?.duration ? Math.min(data.metadata.duration / 1000, 30) * 0.3 : 0;
-  const clickWeight = profile.deepClickCount * 0.5;
-  const scrollPenalty = profile.scrollSpeedAvg > 2000 ? -5 : 0; // Penalize fast scrollers
-  profile.engagementScore = Math.max(0, profile.behaviorScore * 0.4 + dwellWeight + clickWeight + scrollPenalty);
+  // Update Engagement Score (cumulative approach)
+  // Instead of resetting each event, we accumulate engagement signals
+  if (data.action !== 'leave') {
+    const dwellBoost = data.metadata?.duration ? Math.min(data.metadata.duration / 1000, 30) * 0.3 : 0;
+    const clickBoost = (data.action === 'click' && data.metadata?.pageSection) ? 0.5 : 0;
+    const scrollPenalty = (data.action === 'scroll' && (data.metadata?.scrollSpeed || 0) > 2000) ? -0.5 : 0;
+    profile.engagementScore = Math.max(0, (profile.engagementScore || 0) + dwellBoost + clickBoost + scrollPenalty + weight * 0.2);
+  }
 
   // Update Brand Affinities
   if (data.metadata?.brand) {

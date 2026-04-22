@@ -7,20 +7,23 @@ const ensureWishlist = async (userId: string) => {
   return wishlist;
 };
 
-export const getWishlist = (userId: string) => ensureWishlist(userId);
+export const getWishlist = async (userId: string) => {
+  const wishlist = await ensureWishlist(userId);
+  return wishlist.populate("products");
+};
 
 export const addToWishlist = async (userId: string, productId: string) => {
   const wishlist = await ensureWishlist(userId);
-  if (!wishlist.products.includes(productId as any)) {
+  if (!wishlist.products.some((p) => p.toString() === productId)) {
     wishlist.products.push(productId as any);
     await wishlist.save();
   }
-  return wishlist;
+  return wishlist.populate("products");
 };
 
 export const removeFromWishlist = async (userId: string, productId: string) => {
   const wishlist = await ensureWishlist(userId);
   wishlist.products = wishlist.products.filter((p) => p.toString() !== productId);
   await wishlist.save();
-  return wishlist;
+  return wishlist.populate("products");
 };
