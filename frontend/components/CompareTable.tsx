@@ -32,6 +32,67 @@ const allSame = (products: Product[], specKey: string): boolean => {
   return values.every((v) => v === values[0]);
 };
 
+const getSuitability = (p: Product, catSlug: string): { type: string; color: string; desc: string }[] => {
+  const badges: { type: string; color: string; desc: string }[] = [];
+
+  // Default / generic logic if not a racket
+  if (catSlug !== "vot-cau-long" && catSlug !== "rackets" && !p.name.toLowerCase().includes("vợt") && !p.name.toLowerCase().includes("racket")) {
+    badges.push({ type: "All Players", color: "bg-blue-100 text-blue-700", desc: "Versatile product, suitable for most players." });
+    return badges;
+  }
+
+  const getSpec = (specs: Record<string, string> | undefined, key: string) => {
+    const val = getSpecValue(specs, key);
+    return val === "—" ? "" : val;
+  };
+
+  // Extract specs safely (checking both common and specific DB keys)
+  const balanceStr = (getSpec(p.specs, "Điểm cân bằng") || getSpec(p.specs, "Balance") || getSpec(p.specs, "Balance Point") || "").toLowerCase();
+  const weightStr = (getSpec(p.specs, "Trọng lượng") || getSpec(p.specs, "Weight") || getSpec(p.specs, "Weight (U)") || getSpec(p.specs, "Weight(U)") || "").toLowerCase();
+  const stiffnessStr = (getSpec(p.specs, "Độ cứng") || getSpec(p.specs, "Stiffness") || getSpec(p.specs, "Stick Stiffness (Flex)") || "").toLowerCase();
+
+  // 1. Analyze Weight / Lực tay
+  if (weightStr.includes("3u") || weightStr.includes("2u") || (weightStr.match(/\d+g/) && parseInt(weightStr.match(/\d+g/)![0]) > 85)) {
+    badges.push({ type: "Strong Arm", color: "bg-orange-100 text-orange-800 border border-orange-200", desc: "Heavy (3U/2U), requires good physical strength." });
+  } else if (weightStr.includes("5u") || weightStr.includes("6u") || weightStr.includes("f") || (weightStr.match(/\d+g/) && parseInt(weightStr.match(/\d+g/)![0]) < 80)) {
+    badges.push({ type: "Weak Wrist / Ladies", color: "bg-green-100 text-green-800 border border-green-200", desc: "Super light, provides good power assistance." });
+  } else if (weightStr.includes("4u") || weightStr.match(/\d+g/)) {
+    badges.push({ type: "Average Arm", color: "bg-blue-100 text-blue-800 border border-blue-200", desc: "Standard weight (4U), easy to control." });
+  }
+
+  // 2. Analyze Balance / Lối chơi
+  const balanceMatch = balanceStr.match(/\d{3}/);
+  const balanceNum = balanceMatch ? parseInt(balanceMatch[0]) : 0;
+  
+  const isHeavyHead = balanceNum >= 300 || balanceStr.includes("nặng đầu") || balanceStr.includes("head heavy");
+  const isLightHead = (balanceNum > 0 && balanceNum <= 290) || balanceStr.includes("nhẹ đầu") || balanceStr.includes("head light");
+  const isEven = (balanceNum > 290 && balanceNum < 300) || balanceStr.includes("cân bằng") || balanceStr.includes("even");
+  
+  if (isHeavyHead) {
+    badges.push({ type: "Attacking (Smasher)", color: "bg-red-100 text-red-800 border border-red-200", desc: "Head heavy, delivers powerful smashes." });
+  } else if (isLightHead) {
+    badges.push({ type: "Drive / Net Play", color: "bg-cyan-100 text-cyan-800 border border-cyan-200", desc: "Head light, extremely fast swing speed." });
+  } else if (isEven) {
+    badges.push({ type: "All-Around", color: "bg-purple-100 text-purple-800 border border-purple-200", desc: "Flexible transitions between offense and defense." });
+  }
+
+  // 3. Analyze Stiffness / Kỹ năng
+  if (stiffnessStr.includes("cứng") || stiffnessStr.includes("stiff")) {
+    badges.push({ type: "Advanced Technique", color: "bg-stone-100 text-stone-800 border border-stone-200", desc: "Stiff shaft, demands good technique." });
+  } else if (stiffnessStr.includes("dẻo") || stiffnessStr.includes("flexible")) {
+    badges.push({ type: "Power Assistance", color: "bg-pink-100 text-pink-800 border border-pink-200", desc: "Flexible shaft, makes clear shots easier." });
+  } else if (stiffnessStr.includes("trung bình") || stiffnessStr.includes("medium")) {
+    badges.push({ type: "Versatile", color: "bg-teal-100 text-teal-800 border border-teal-200", desc: "Medium stiff shaft, easy to control." });
+  }
+
+  // Fallback
+  if (badges.length === 0) {
+     badges.push({ type: "All Playstyles", color: "bg-gray-100 text-gray-800 border border-gray-200", desc: "Easy to get used to for beginners." });
+  }
+
+  return badges;
+};
+
 /* ── Component ───────────────────────────────────────────── */
 
 export function CompareTable() {
@@ -289,44 +350,36 @@ export function CompareTable() {
               );
             })}
 
-            {/* ─── Badges row ──────────────────────────── */}
+            {/* ─── Suitable For row ──────────────────────────── */}
             <tr className="bg-white">
               <td className="sticky left-0 z-10 border-b border-r border-black/5 bg-white p-4">
                 <span className="flex items-center gap-2 text-sm font-semibold text-secondary/80">
-                  🏷️ Badges
+                  🎯 Suitable For
                 </span>
+                <p className="mt-1 text-[10px] text-secondary/50 font-normal leading-tight max-w-[120px]">
+                  Intelligent evaluation based on specs
+                </p>
               </td>
-              {items.map((product, idx) => (
-                <td
-                  key={getProductId(product)}
-                  className={`border-b border-black/5 p-4 text-center ${
-                    idx < colCount - 1 ? "border-r" : ""
-                  }`}
-                >
-                  <div className="flex flex-wrap justify-center gap-1.5">
-                    {product.badges && product.badges.length > 0 ? (
-                      product.badges.map((badge) => (
-                        <span
-                          key={badge}
-                          className={`rounded-full px-2.5 py-1 text-[10px] font-bold shadow-sm ${
-                            badge === "Sale" || badge.includes("Sale")
-                              ? "bg-red-500 text-white"
-                              : badge === "New" || badge === "Mới"
-                              ? "bg-green-500 text-white"
-                              : badge === "Best Seller"
-                              ? "bg-amber-500 text-white"
-                              : "bg-gray-100 text-secondary/70"
-                          }`}
-                        >
-                          {badge}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-secondary/25">—</span>
-                    )}
-                  </div>
-                </td>
-              ))}
+              {items.map((product, idx) => {
+                const suitability = getSuitability(product, catSlug);
+                return (
+                  <td
+                    key={getProductId(product)}
+                    className={`border-b border-black/5 p-4 align-top ${
+                      idx < colCount - 1 ? "border-r" : ""
+                    }`}
+                  >
+                    <div className="flex flex-col gap-2.5">
+                      {suitability.map((badge, i) => (
+                        <div key={i} className={`flex flex-col items-start rounded-xl p-2.5 ${badge.color} bg-opacity-40`}>
+                          <span className="text-[11px] font-bold tracking-wide uppercase mb-0.5">{badge.type}</span>
+                          <span className="text-[10px] leading-snug opacity-90 text-left">{badge.desc}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </td>
+                );
+              })}
             </tr>
 
             {/* ─── Description rows ───────────────────── */}

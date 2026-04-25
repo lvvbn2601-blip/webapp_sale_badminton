@@ -25,6 +25,7 @@ app.use(compression());
 app.use(apiLimiter);
 
 app.use("/uploads", express.static(path.join(__dirname, "../public/uploads")));
+app.get("/", (_req, res) => res.json({ message: "Sportive Badminton API is running" }));
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 app.use("/api", routes);
 app.use(errorHandler);
