@@ -9,11 +9,11 @@ export const createVariant = asyncHandler(async (req: Request, res: Response) =>
 });
 
 export const updateVariant = asyncHandler(async (req: Request, res: Response) => {
-  const variant = await ProductService.updateVariant(req.params.id, req.body);
+  const variant = await ProductService.updateVariant(req.params.id as string, req.body);
   res.json(ok(variant));
 });
 
 export const deleteVariant = asyncHandler(async (req: Request, res: Response) => {
-  await ProductService.deleteVariant(req.params.id);
+  await ProductService.deleteVariant(req.params.id as string);
   res.json(ok(true, "Deleted"));
 });

@@ -52,9 +52,9 @@ export const changePassword = async (userId: string, current: string, next: stri
 const refreshKey = (userId: string) => `refresh:${userId}`;
 
 const issueTokens = (user: IUser) => {
-  const payload = { sub: user.id, role: user.role };
+  const payload = { sub: (user as any).id, role: user.role };
   const accessToken = signAccessToken(payload);
   const refreshToken = signRefreshToken(payload);
-  redis.set(refreshKey(user.id), refreshToken, "EX", 60 * 60 * 24 * 30);
+  redis.set(refreshKey((user as any).id), refreshToken, "EX", 60 * 60 * 24 * 30);
   return { accessToken, refreshToken, expiresIn: env.jwtExpiresIn };
 };

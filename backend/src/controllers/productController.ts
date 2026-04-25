@@ -23,7 +23,7 @@ export const listProducts = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const getProduct = asyncHandler(async (req: Request, res: Response) => {
-  const product = await ProductService.getProduct(req.params.id);
+  const product = await ProductService.getProduct(req.params.id as string);
   res.json(ok(product));
 });
 
@@ -39,12 +39,12 @@ export const createProduct = asyncHandler(async (req: Request, res: Response) =>
 });
 
 export const updateProduct = asyncHandler(async (req: Request, res: Response) => {
-  const product = await ProductService.updateProduct(req.params.id, req.body);
+  const product = await ProductService.updateProduct(req.params.id as string, req.body);
   res.json(ok(product));
 });
 
 export const deleteProduct = asyncHandler(async (req: Request, res: Response) => {
-  await ProductService.deleteProduct(req.params.id);
+  await ProductService.deleteProduct(req.params.id as string);
   res.json(ok(true, "Deleted"));
 });
 

@@ -95,6 +95,6 @@ export const updateTracking = asyncHandler(async (req: AuthRequest, res: Respons
 
 export const updateStringingStatus = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { stringingStatus } = req.body;
-  const order = await OrderService.updateStringingStatus(req.params.id, stringingStatus);
+  const order = await OrderService.updateStringingStatus(req.params.id as string, stringingStatus);
   res.json(ok(order));
 });
