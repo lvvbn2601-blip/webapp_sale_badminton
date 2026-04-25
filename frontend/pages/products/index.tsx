@@ -8,6 +8,7 @@ import { Layout } from "../../components/Layout";
 import { FilterSidebar, FilterState, defaultFilters } from "../../components/FilterSidebar";
 import { ProductGrid } from "../../components/ProductGrid";
 import { RacketQuizModal } from "../../components/RacketQuizModal";
+import { useCompare } from "../../context/CompareContext";
 import {
   brands as mockBrands,
   categories as mockCategories,
@@ -15,6 +16,7 @@ import {
 } from "../../data/mockData";
 import { Product, Category, Brand } from "../../types";
 import { fetchProducts, fetchCategories, fetchBrands } from "../../lib/api";
+import { fuzzyMatch } from "../../lib/vietnameseSearch";
 
 /* ── Helpers ────────────────────────────────────────── */
 const getPrice = (p: any): number => Number(p.price ?? p.basePrice ?? 0);
@@ -58,8 +60,8 @@ type Props = {
 };
 
 export default function ProductListPage({ initialProducts, categories, brands, searchQuery, selectedCategory, selectedBrand }: Props) {
-  // Initialize state
-  const [compareList, setCompareList] = useState<Product[]>([]);
+  // Compare context (global state)
+  const compare = useCompare();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
 
@@ -69,20 +71,19 @@ export default function ProductListPage({ initialProducts, categories, brands, s
   }, []);
 
   const handleToggleCompare = useCallback((product: Product) => {
-    setCompareList(prev => {
-      const isComparing = prev.some(p => (p.id || (p as any)._id) === (product.id || (product as any)._id));
-      if (isComparing) {
-        showToast(`Removed ${product.name} from compare`);
-        return prev.filter(p => (p.id || (p as any)._id) !== (product.id || (product as any)._id));
-      }
-      if (prev.length >= 3) {
-        showToast(`You can compare up to 3 products at a time`);
-        return prev;
-      }
-      showToast(`Added ${product.name} to compare`);
-      return [...prev, product];
-    });
-  }, [showToast]);
+    const id = product.id || (product as any)._id;
+    const wasComparing = compare.isComparing(id);
+    const error = compare.toggle(product);
+    if (error) {
+      showToast(error);
+    } else {
+      showToast(
+        wasComparing
+          ? `Removed ${product.name} from compare`
+          : `Added ${product.name} to compare`
+      );
+    }
+  }, [compare, showToast]);
 
   const [filters, setFilters] = useState<FilterState>(() => {
     const f = { ...defaultFilters };
@@ -280,7 +281,7 @@ export default function ProductListPage({ initialProducts, categories, brands, s
                 showControls
                 sortBy={filters.sortBy}
                 onSortChange={handleSortChange}
-                compareList={compareList}
+                compareList={compare.items}
                 onToggleCompare={handleToggleCompare}
               />
             </div>
@@ -288,51 +289,7 @@ export default function ProductListPage({ initialProducts, categories, brands, s
         </div>
       </section>
 
-      {/* Compare Bar */}
-      {compareList.length > 0 && (
-        <div className="fixed bottom-0 left-0 z-50 w-full bg-white px-6 py-4 shadow-2xl border-t border-black/10 transition-transform duration-300 transform translate-y-0">
-          <div className="container-default mx-auto flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <span className="font-semibold text-secondary">Compare ({compareList.length}/3): </span>
-              <div className="flex gap-4">
-                {compareList.map(p => (
-                  <div key={p.id || (p as any)._id} className="relative flex items-center gap-2 rounded-lg border border-black/5 p-2 pr-8 shadow-sm">
-                    {p.image && <img src={p.image} alt={p.name} className="h-10 w-10 shrink-0 rounded object-cover" />}
-                    <span className="text-xs font-medium line-clamp-2 w-24">{p.name}</span>
-                    <button
-                      onClick={() => handleToggleCompare(p)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-secondary/40 hover:text-red-500"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-                {Array.from({ length: 3 - compareList.length }).map((_, i) => (
-                  <div key={`empty-${i}`} className="flex h-[58px] w-36 items-center justify-center rounded-lg border border-dashed border-secondary/20 bg-gray-50 text-xs text-secondary/40">
-                    Add product
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setCompareList([])}
-                className="text-sm font-medium text-secondary/60 hover:text-secondary hover:underline"
-              >
-                Clear all
-              </button>
-              <button
-                className={`rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition ${compareList.length < 2 ? "cursor-not-allowed bg-secondary/50" : "bg-primary hover:bg-primary/90 hover:-translate-y-0.5"
-                  }`}
-                disabled={compareList.length < 2}
-              >
-                Compare now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* CompareBar is now rendered globally by Layout */}
 
       {/* Global Toast */}
       {toastMessage && (
@@ -397,7 +354,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async (context) => 
 
     const fallbackProducts = mockProducts.filter(p => {
       let pass = true;
-      if (searchQuery) pass = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+      if (searchQuery) pass = fuzzyMatch(p.name, searchQuery);
       if (catParam) pass = pass && getCategoryId(p) === catParam;
       if (brandParam) pass = pass && getBrandId(p) === brandParam;
       return pass;

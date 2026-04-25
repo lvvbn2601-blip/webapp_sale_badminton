@@ -158,6 +158,38 @@ export const updateStatus = async (id: string, status: string, adminId?: string,
   const orderId = String(order._id);
   const shortId = orderId.slice(-8).toUpperCase();
 
+  // Create StringingTask(s) if order needs stringing and is confirmed
+  if (status === "confirmed" && order.needsStringing) {
+    const { StringingTask } = await import("../models/StringingTask");
+    const { createTask } = await import("./stringerService");
+    
+    const existingTasks = await StringingTask.countDocuments({ order: order._id });
+    if (existingTasks === 0) {
+      const orderItems = await OrderItem.find({ order: order._id, needsStringing: true }).populate("product");
+      
+      for (const item of orderItems) {
+        // Create a task for each quantity of the item
+        for (let i = 0; i < item.quantity; i++) {
+          const product = item.product as any;
+          await createTask({
+            orderId: String(order._id),
+            customerName: order.recipientName || "Customer",
+            customerPhone: order.recipientPhone || "",
+            racketModel: product ? product.name : "Custom Racket",
+            stringType: item.stringType || "Default String",
+            stringPattern: "2_knots", // Default
+            tension: item.stringTension || 24,
+            isUrgent: false,
+            fee: 50000,
+            userId: String(order.user),
+            racketSource: "new_from_cart",
+            autoAssign: false,
+          });
+        }
+      }
+    }
+  }
+
   // Notify buyer based on status change
   if (status === "confirmed" && (oldStatus === "pending" || oldStatus === "paid")) {
     await NotificationService.createNotification({

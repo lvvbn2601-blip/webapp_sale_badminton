@@ -1,3 +1,4 @@
+import { confirmAction } from "../../components/ConfirmModal";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import Head from "next/head";
 import { AdminShell } from "../../components/admin/AdminShell";
@@ -298,7 +299,7 @@ export default function AdminVouchers() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Are you sure you want to delete this voucher?")) return;
     try {
       if (!usingMockData && token) {

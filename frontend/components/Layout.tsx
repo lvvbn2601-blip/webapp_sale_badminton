@@ -2,6 +2,7 @@ import { ReactNode, useState, useEffect } from "react";
 import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { CartDrawer } from "./CartDrawer";
+import { CompareBar } from "./CompareBar";
 import { useCart } from "../context/CartContext";
 import { useTracking } from "../lib/useTracking";
 import { X, Gift, Clock } from "lucide-react";
@@ -48,6 +49,7 @@ export function Layout({ children, showFooter = true }: Props) {
       <main className="pb-20 lg:pb-0">{children}</main>
       {showFooter && <Footer />}
       <CartDrawer open={cartOpen} items={items} onClose={() => setCartOpen(false)} />
+      <CompareBar />
 
       {/* Tracking Recommend Popup */}
       {showPopup && popupContent && (

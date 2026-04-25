@@ -1,3 +1,4 @@
+import { confirmAction } from "../../components/ConfirmModal";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
@@ -449,7 +450,7 @@ export default function AdminCategoriesPage() {
   };
 
   const handleDeleteUser = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Are you sure you want to delete this user?")) return;
     if (usingMockData || !token) {
       setUsers(users.filter((u) => (u._id !== id && u.id !== id)));
@@ -608,7 +609,7 @@ export default function AdminCategoriesPage() {
   };
 
   const removeProduct = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Delete this product?")) return;
     const prev = products;
     setProducts((p: any) => p.filter((x: any) => ((x as any)._id || x.id) !== id));
@@ -695,7 +696,7 @@ export default function AdminCategoriesPage() {
   };
 
   const removeBrand = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Delete this brand?")) return;
     const prev = brands;
     setBrands((b) => b.filter((x) => (x._id || x.id) !== id));
@@ -782,7 +783,7 @@ export default function AdminCategoriesPage() {
   };
 
   const removeCategory = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Delete this category?")) return;
     const prev = categories;
     setCategories((c) => c.filter((x) => (x._id || x.id) !== id));

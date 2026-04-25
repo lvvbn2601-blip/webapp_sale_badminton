@@ -1,3 +1,4 @@
+import { confirmAction } from "../../components/ConfirmModal";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
@@ -490,7 +491,7 @@ export default function AdminUsersPage() {
   };
 
   const handleDeleteUser = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Are you sure you want to delete this user?")) return;
     if (usingMockData || !token) {
       setUsers(users.filter((u) => (u._id !== id && u.id !== id)));
@@ -649,7 +650,7 @@ export default function AdminUsersPage() {
   };
 
   const removeProduct = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Delete this product?")) return;
     const prev = products;
     setProducts((p: any) => p.filter((x: any) => ((x as any)._id || x.id) !== id));
@@ -736,7 +737,7 @@ export default function AdminUsersPage() {
   };
 
   const removeBrand = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Delete this brand?")) return;
     const prev = brands;
     setBrands((b) => b.filter((x) => (x._id || x.id) !== id));
@@ -823,7 +824,7 @@ export default function AdminUsersPage() {
   };
 
   const removeCategory = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Delete this category?")) return;
     const prev = categories;
     setCategories((c) => c.filter((x) => (x._id || x.id) !== id));
@@ -1081,7 +1082,7 @@ export default function AdminUsersPage() {
                             })()}
                           </div>
                         </td>
-                        <td className="px-6 py-4 font-semibold">${calculateLtv(u.email).toLocaleString()}</td>
+                        <td className="px-6 py-4 font-semibold">${calculateLtv(u.email).toLocaleString("en-US")}</td>
                         <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                           <button
                             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-primary/20 ${u.status === "locked" ? "bg-gray-300" : "bg-emerald-500"} transition-colors`}
@@ -1418,7 +1419,7 @@ export default function AdminUsersPage() {
                         <div className="flex justify-between items-center p-3 bg-gray-50 border border-gray-100 rounded-xl">
                           <span className="text-secondary/70 font-semibold text-xs">RFM Monetary</span>
                           <span className="font-bold text-secondary bg-white px-2 py-1 rounded shadow-sm border border-gray-100 text-xs">
-                            ${selectedUser.behavior.rfmScore?.monetary ? (selectedUser.behavior.rfmScore.monetary / 25000).toLocaleString() : 0}
+                            ${selectedUser.behavior.rfmScore?.monetary ? (selectedUser.behavior.rfmScore.monetary / 25000).toLocaleString("en-US") : 0}
                           </span>
                         </div>
                       </div>
@@ -1483,7 +1484,7 @@ export default function AdminUsersPage() {
                     <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
                       <p className="text-xs text-primary font-bold uppercase tracking-wider mb-1">Total LTV Amount</p>
                       <p className="text-2xl font-bold text-secondary">
-                        ${calculateLtv(selectedUser.email).toLocaleString()}
+                        ${calculateLtv(selectedUser.email).toLocaleString("en-US")}
                       </p>
                     </div>
                     <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-center justify-between">

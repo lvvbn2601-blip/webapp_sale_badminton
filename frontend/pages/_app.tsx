@@ -3,6 +3,7 @@ import { Inter, Poppins } from "next/font/google";
 import "../styles/globals.css";
 import { CartProvider } from "../context/CartContext";
 import { WishlistProvider } from "../context/WishlistContext";
+import { CompareProvider } from "../context/CompareContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -23,7 +24,9 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     <div className={`${inter.variable} ${poppins.variable}`}>
       <CartProvider>
         <WishlistProvider>
-          <Component {...pageProps} />
+          <CompareProvider>
+            <Component {...pageProps} />
+          </CompareProvider>
         </WishlistProvider>
       </CartProvider>
     </div>

@@ -3,6 +3,7 @@ import { ProductVariant } from "../models/ProductVariant";
 import { cacheGet, cacheSet, cacheDel } from "../utils/cache";
 import { ApiError } from "../utils/apiError";
 import { Types } from "mongoose";
+import { buildSearchFilter, toSearchKey } from "../utils/vietnameseSearch";
 
 export const listProducts = async (query: {
   page?: number;
@@ -13,8 +14,9 @@ export const listProducts = async (query: {
 }) => {
   const page = query.page || 1;
   const limit = query.limit || 12;
-  const cacheKey = `products:${page}:${limit}:${query.category || "all"}:${query.brand || "all"}:${query.search || ""
-    }`;
+  // Normalise search term for a stable cache key regardless of accent/spacing
+  const normalisedSearch = query.search ? toSearchKey(query.search) : "";
+  const cacheKey = `products:${page}:${limit}:${query.category || "all"}:${query.brand || "all"}:${normalisedSearch}`;
 
   const cached = await cacheGet<{ data: unknown; total: number }>(cacheKey);
   if (cached) return cached;
@@ -22,7 +24,12 @@ export const listProducts = async (query: {
   const filter: Record<string, unknown> = {};
   if (query.category) filter.category = new Types.ObjectId(query.category);
   if (query.brand) filter.brand = new Types.ObjectId(query.brand);
-  if (query.search) filter.name = { $regex: query.search, $options: "i" };
+
+  // Vietnamese-aware accent/space-insensitive search
+  if (query.search) {
+    const searchFilter = buildSearchFilter(query.search);
+    Object.assign(filter, searchFilter);
+  }
 
   const [data, total] = await Promise.all([
     Product.find(filter).populate("category brand").skip((page - 1) * limit).limit(limit),
@@ -87,6 +94,7 @@ const pickProductPayload = (payload: any, opts: { partial?: boolean } = {}) => {
   assignString("description");
   assignString("image");
   assignNumber("basePrice");
+  assignNumber("purchasePrice");
   assignNumber("stock");
   if (typeof payload.status === "string" && ["active", "inactive", "draft"].includes(payload.status)) {
     out.status = payload.status;

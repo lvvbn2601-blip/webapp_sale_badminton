@@ -1,3 +1,4 @@
+import { confirmAction } from "../components/ConfirmModal";
 import Head from "next/head";
 import { Layout } from "../components/Layout";
 import { ProductCard } from "../components/ProductCard";
@@ -54,7 +55,7 @@ export default function WishlistPage() {
 
             {wishlist.items.length > 0 && (
               <button
-                onClick={handleClearWishlist}
+                onClick={async () => (await confirmAction("Are you sure you want to clear your wishlist?")) && handleClearWishlist()}
                 className="text-sm font-semibold text-secondary/50 hover:text-red-500 dark:text-gray-400 hover:dark:text-red-400 transition"
               >
                 Clear all items
@@ -98,48 +99,47 @@ export default function WishlistPage() {
                 return (
                   <div key={pid} className="relative group/card isolate overflow-hidden rounded-2xl">
                     <ProductCard product={product} />
-                    
+
                     {/* Dark/Dim background overlay on hover to prioritize actions */}
                     <div className="absolute inset-x-0 inset-y-0 rounded-2xl bg-white/70 dark:bg-black/70 backdrop-blur-sm opacity-0 group-hover/card:opacity-100 pointer-events-none transition duration-300 z-10" />
 
                     {/* Overlay Actions Panel */}
                     <div className="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-all duration-300 pointer-events-none z-20 flex flex-col items-center justify-center gap-3 w-full px-6 translate-y-4 group-hover/card:translate-y-0">
-                        {/* Move to Cart Button */}
-                        <button 
-                            onClick={(e) => { 
-                                e.preventDefault(); 
-                                if (!inStock) return;
-                                handleMoveToCart(product); 
-                            }}
-                            disabled={!inStock || isMoving}
-                            className={`pointer-events-auto flex w-full justify-center items-center gap-2 rounded-xl px-5 py-3.5 text-sm font-bold shadow-xl transition-all duration-300 ${
-                              inStock 
-                                ? "bg-primary text-white hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98]" 
-                                : "bg-red-50 text-red-500 opacity-80 cursor-not-allowed dark:bg-red-500/10 dark:text-red-400"
-                            }`}
-                        >
-                            {isMoving ? (
-                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-                            ) : inStock ? (
-                                <>
-                                  <ShoppingBag size={18} />
-                                  Move to Cart
-                                </>
-                            ) : (
-                                "Coming Soon"
-                            )}
-                        </button>
+                      {/* Move to Cart Button */}
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (!inStock) return;
+                          handleMoveToCart(product);
+                        }}
+                        disabled={!inStock || isMoving}
+                        className={`pointer-events-auto flex w-full justify-center items-center gap-2 rounded-xl px-5 py-3.5 text-sm font-bold shadow-xl transition-all duration-300 ${inStock
+                          ? "bg-primary text-white hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98]"
+                          : "bg-red-50 text-red-500 opacity-80 cursor-not-allowed dark:bg-red-500/10 dark:text-red-400"
+                          }`}
+                      >
+                        {isMoving ? (
+                          <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                        ) : inStock ? (
+                          <>
+                            <ShoppingBag size={18} />
+                            Move to Cart
+                          </>
+                        ) : (
+                          "Coming Soon"
+                        )}
+                      </button>
 
-                        {/* Remove Button */}
-                        <button 
-                            onClick={(e) => { 
-                                e.preventDefault(); 
-                                if (window.confirm("Are you sure you want to remove this item?")) wishlist.remove(pid); 
-                            }}
-                            className="pointer-events-auto flex w-full justify-center items-center gap-2 rounded-xl bg-gray-100 dark:bg-gray-800 border border-black/5 dark:border-white/10 px-5 py-3 text-sm font-bold text-secondary dark:text-white shadow-sm hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/20 dark:hover:text-red-400 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-                        >
-                            Remove
-                        </button>
+                      {/* Remove Button */}
+                      <button
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          if (await confirmAction("Are you sure you want to remove this item?")) wishlist.remove(pid);
+                        }}
+                        className="pointer-events-auto flex w-full justify-center items-center gap-2 rounded-xl bg-gray-100 dark:bg-gray-800 border border-black/5 dark:border-white/10 px-5 py-3 text-sm font-bold text-secondary dark:text-white shadow-sm hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/20 dark:hover:text-red-400 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        Remove
+                      </button>
                     </div>
                   </div>
                 );

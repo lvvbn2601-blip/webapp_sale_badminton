@@ -1,3 +1,4 @@
+import { confirmAction } from "../components/ConfirmModal";
 import Head from "next/head";
 import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
@@ -116,7 +117,7 @@ export default function ProfilePage() {
   };
 
   const handleCancel = async (orderId: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!token || !confirm("Are you sure you want to cancel this order?")) return;
     setActionLoading(orderId);
     try {
@@ -293,8 +294,8 @@ export default function ProfilePage() {
     setIsAddingAddress(false);
   };
 
-  const removeAddress = (idx: number) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+  const removeAddress = async (idx: number) => {
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     const txt = addressList[idx];
     const nextList = addressList.filter((_, i) => i !== idx);
     setAddressList(nextList);

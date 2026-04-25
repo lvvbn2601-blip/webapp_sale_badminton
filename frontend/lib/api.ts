@@ -645,3 +645,123 @@ export const removeFromWishlist = async (productId: string, token: string) => {
   });
   return data.data;
 };
+
+// ── Stringer Module ──────────────────────────────────────────
+
+export const fetchStringers = async (token: string) => {
+  const { data } = await api.get("/stringers", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data as any[];
+};
+
+export const createStringer = async (payload: any, token: string) => {
+  const { data } = await api.post("/stringers", payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+export const updateStringerApi = async (id: string, payload: any, token: string) => {
+  const { data } = await api.put(`/stringers/${id}`, payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+export const deleteStringerApi = async (id: string, token: string) => {
+  await api.delete(`/stringers/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+export const fetchStringerStats = async (id: string, token: string) => {
+  const { data } = await api.get(`/stringers/${id}/stats`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+// ── Stringing Tasks ──────────────────────────────────────────
+
+export const fetchStringingTasks = async (token: string, filter?: { status?: string; stringer?: string }) => {
+  const { data } = await api.get("/stringers/tasks/all", {
+    headers: { Authorization: `Bearer ${token}` },
+    params: filter,
+  });
+  return data.data as any[];
+};
+
+export const createStringingTask = async (payload: any, token: string) => {
+  const { data } = await api.post("/stringers/tasks", payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+export const startStringingTask = async (taskId: string, token: string) => {
+  const { data } = await api.put(`/stringers/tasks/${taskId}/start`, {}, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+export const assignStringingTask = async (taskId: string, stringerId: string, token: string) => {
+  const { data } = await api.put(`/stringers/tasks/${taskId}/assign`, { stringerId }, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+export const completeStringingTask = async (taskId: string, token: string) => {
+  const { data } = await api.put(`/stringers/tasks/${taskId}/complete`, {}, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+export const rateStringingTask = async (taskId: string, rating: number, note: string, token: string) => {
+  const { data } = await api.put(`/stringers/tasks/${taskId}/rate`, { rating, note }, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+export const autoAssignTasks = async (token: string) => {
+  const { data } = await api.post("/stringers/tasks/auto-assign", {}, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+// ── Performance & Level Up ─────────────────────────────────
+
+export const fetchPerformanceOverview = async (token: string) => {
+  const { data } = await api.get("/stringers/performance", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+export const approveLevelUp = async (id: string, token: string) => {
+  const { data } = await api.post(`/stringers/${id}/level-up`, {}, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+// ── Customer Stringing Service ─────────────────────────────
+
+export const bookStringingService = async (payload: any, token: string) => {
+  const { data } = await api.post("/stringers/tasks/book", payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+export const fetchMyStringingTasks = async (token: string) => {
+  const { data } = await api.get("/stringers/tasks/my", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data as any[];
+};

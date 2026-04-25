@@ -1,3 +1,4 @@
+import { confirmAction } from "./ConfirmModal";
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import {
@@ -200,8 +201,8 @@ export function Navbar({ onCartClick }: Props) {
         <div className="container-default mx-auto px-4 h-20 flex items-center justify-between gap-6">
 
           {/* Left: Logo & Menus */}
-          <div className="flex items-center gap-8">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4 lg:gap-8 transition-all duration-300 shrink-0">
+            <div className="flex items-center gap-3 shrink-0">
               <button
                 className="lg:hidden rounded-lg p-2 text-secondary dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-primary"
                 onClick={() => setMobileOpen(true)}
@@ -219,7 +220,7 @@ export function Navbar({ onCartClick }: Props) {
               </Link>
             </div>
 
-            <nav className="hidden lg:flex items-center gap-1 font-medium text-sm text-secondary/80 dark:text-gray-300">
+            <nav className={`hidden lg:flex items-center gap-1 font-medium text-sm text-secondary/80 dark:text-gray-300 transition-all duration-500 ease-in-out whitespace-nowrap ${searchFocused ? "max-w-0 opacity-0 pointer-events-none -translate-x-4" : "max-w-[500px] opacity-100 translate-x-0"}`}>
               <div className="relative group px-3 py-2 cursor-pointer hover:text-primary transition-colors">
                 <span className="flex items-center gap-1">Categories <ChevronDown size={14} className="group-hover:rotate-180 transition-transform duration-300" /></span>
                 <div className="absolute top-full left-0 w-48 pt-2 opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-200 z-50">
@@ -250,12 +251,15 @@ export function Navbar({ onCartClick }: Props) {
                 </div>
               </div>
 
+              <Link href="/stringing" className="px-3 py-2 hover:text-primary transition-colors flex items-center gap-1.5">
+                🔧 <span>Stringing</span>
+              </Link>
 
             </nav>
           </div>
 
           {/* Center: Search Bar */}
-          <div className="hidden md:flex flex-1 max-w-xl" ref={searchRef}>
+          <div className={`hidden md:flex flex-1 transition-all duration-500 ease-in-out ${searchFocused ? "max-w-3xl" : "max-w-xl"}`} ref={searchRef}>
             <div className="relative w-full group">
               <form onSubmit={handleSearchSubmit} className="relative z-10">
                 <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary/40 dark:text-gray-400 group-focus-within:text-primary transition-colors" />
@@ -277,7 +281,7 @@ export function Navbar({ onCartClick }: Props) {
 
               {/* Autocomplete Dropdown */}
               {searchFocused && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-black/5 dark:border-white/10 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-black/5 dark:border-white/10 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="p-4 flex flex-col gap-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
 
                     {/* Suggestions logic */}
@@ -360,9 +364,7 @@ export function Navbar({ onCartClick }: Props) {
 
           {/* Right: Actions */}
           <div className="flex items-center gap-1 sm:gap-2">
-            <button onClick={toggleDarkMode} className="p-2 rounded-full text-secondary/70 hover:text-primary hover:bg-primary/10 dark:text-gray-400 dark:hover:text-primary-light transition-colors focus:ring-2 focus:ring-primary focus:outline-none" aria-label="Toggle dark mode">
-              {isDark ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
+
 
             {account?.role !== "admin" && account?.role !== "knitter" && account?.role !== "warehouse_staff" && (
               <Link href="/profile/notifications" className="hidden sm:flex relative p-2 rounded-full text-secondary/70 hover:text-primary hover:bg-primary/10 dark:text-gray-400 dark:hover:text-primary-light transition-colors focus:ring-2 focus:ring-primary focus:outline-none" aria-label="Notifications">
@@ -443,7 +445,7 @@ export function Navbar({ onCartClick }: Props) {
                                   <p className="font-semibold text-sm text-secondary dark:text-white line-clamp-1">{item.product.name}</p>
                                   <p className="text-xs text-secondary/60 dark:text-gray-400 mt-0.5">Qty {item.quantity}  ×  ${(item.product.price || (item.product as any).basePrice || 0).toFixed(2)}</p>
                                 </div>
-                                <button onClick={(e) => { e.stopPropagation(); if (window.confirm("Are you sure you want to remove this item?")) remove(pid); }} className="p-1.5 text-secondary/40 hover:text-red-500 hover:bg-red-50 rounded-lg transition" aria-label="Remove item">
+                                <button onClick={async (e) => { e.stopPropagation(); if (await confirmAction("Are you sure you want to remove this item?")) remove(pid); }} className="p-1.5 text-secondary/40 hover:text-red-500 hover:bg-red-50 rounded-lg transition" aria-label="Remove item">
                                   <X size={14} />
                                 </button>
                               </div>
@@ -616,6 +618,12 @@ export function Navbar({ onCartClick }: Props) {
                 <div className="text-secondary/50 text-xs px-2">Loading...</div>
               )}
             </div>
+          </div>
+
+          <div className="space-y-3">
+            <Link href="/stringing" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 bg-primary/10 px-4 py-3 rounded-xl text-sm font-bold text-primary hover:bg-primary/20 transition border border-primary/20">
+              🔧 Stringing Service
+            </Link>
           </div>
 
           <div className="h-px bg-black/5 dark:bg-white/10 w-full" />

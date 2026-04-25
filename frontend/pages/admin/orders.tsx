@@ -1,3 +1,4 @@
+import { confirmAction } from "../../components/ConfirmModal";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
@@ -491,7 +492,7 @@ export default function AdminOrdersPage() {
   };
 
   const handleDeleteUser = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Are you sure you want to delete this user?")) return;
     if (usingMockData || !token) {
       setUsers(users.filter((u) => (u._id !== id && u.id !== id)));
@@ -650,7 +651,7 @@ export default function AdminOrdersPage() {
   };
 
   const removeProduct = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Delete this product?")) return;
     const prev = products;
     setProducts((p: any) => p.filter((x: any) => ((x as any)._id || x.id) !== id));
@@ -737,7 +738,7 @@ export default function AdminOrdersPage() {
   };
 
   const removeBrand = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Delete this brand?")) return;
     const prev = brands;
     setBrands((b) => b.filter((x) => (x._id || x.id) !== id));
@@ -824,7 +825,7 @@ export default function AdminOrdersPage() {
   };
 
   const removeCategory = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Delete this category?")) return;
     const prev = categories;
     setCategories((c) => c.filter((x) => (x._id || x.id) !== id));
@@ -894,7 +895,7 @@ export default function AdminOrdersPage() {
           {/* Header Metric Cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <StatCard label="Total Orders" value={orders.length || 0} />
-            <StatCard label="Monthly Revenue" value={`$${(dashboard?.revenueThisMonth || 0).toLocaleString()}`} />
+            <StatCard label="Monthly Revenue" value={`$${(dashboard?.revenueThisMonth || 0).toLocaleString("en-US")}`} />
             <StatCard label="Pending" value={orders.filter(o => o.status === "pending").length} />
             <StatCard label="Paid (Awaiting Confirm)" value={orders.filter(o => o.status === "paid").length} />
             <StatCard label="Delivered" value={orders.filter(o => o.status === "delivered").length} />
@@ -1169,7 +1170,10 @@ export default function AdminOrdersPage() {
                           )
                         )}
                         {selectedOrder.status === 'delivered' && (
-                          <button onClick={() => handleUpdateOrderStatus(selectedOrder._id, 'received')} className="flex-1 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 shadow-emerald-500/25 text-white py-3 rounded-2xl text-sm font-bold shadow-lg transition-all hover:scale-[1.02] active:scale-95">Confirm Received</button>
+                          <div className="flex-1 text-center py-3 bg-green-50 text-green-600 border border-green-200 rounded-2xl text-sm font-bold flex items-center justify-center gap-2">
+                            <span className="animate-pulse">⏳</span> Waiting for buyer to receive...
+                            <button onClick={() => openCancelModal(selectedOrder._id)} className="px-5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 py-3 rounded-2xl text-sm font-bold transition-all active:scale-95">Cancel</button>
+                          </div>
                         )}
                         {(!['pending', 'paid', 'confirmed', 'delivered'].includes(selectedOrder.status)) && (
                           <div className="flex-1 flex gap-3">

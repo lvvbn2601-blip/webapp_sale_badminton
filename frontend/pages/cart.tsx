@@ -1,3 +1,4 @@
+import { confirmAction } from "../components/ConfirmModal";
 import Head from "next/head";
 import Image from "next/image";
 import Link from "next/link";
@@ -80,7 +81,7 @@ export default function CartPage() {
             </div>
             {items.length > 0 && (
               <button
-                onClick={() => { if (window.confirm("Are you sure you want to clear your cart?")) clear(); }}
+                onClick={async () => { if (await confirmAction("Are you sure you want to clear your cart?")) clear(); }}
                 className="flex items-center gap-2 rounded-full border border-black/5 px-4 py-2 text-sm font-semibold text-secondary/50 transition hover:border-red-200 hover:bg-red-50 hover:text-red-500"
               >
                 <Trash2 size={14} />
@@ -256,7 +257,7 @@ export default function CartPage() {
                       {/* Remove */}
                       <div className="w-10 text-right">
                         <button
-                          onClick={() => { if (window.confirm("Are you sure you want to remove this item?")) remove(id); }}
+                          onClick={async () => { if (await confirmAction("Are you sure you want to remove this item?")) remove(id); }}
                           className="grid h-8 w-8 place-items-center rounded-lg text-secondary/30 transition hover:bg-red-50 hover:text-red-500"
                           aria-label="Remove"
                         >

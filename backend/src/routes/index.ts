@@ -16,6 +16,7 @@ import uploadRoutes from "./uploadRoutes";
 import notificationRoutes from "./notificationRoutes";
 import settingRoutes from "./settingRoutes";
 import trackingRoutes from "./trackingRoutes";
+import stringerRoutes from "./stringerRoutes";
 
 const router = Router();
 
@@ -36,5 +37,6 @@ router.use("/upload", uploadRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/settings", settingRoutes);
 router.use("/tracking", trackingRoutes);
+router.use("/stringers", stringerRoutes);
 
 export default router;

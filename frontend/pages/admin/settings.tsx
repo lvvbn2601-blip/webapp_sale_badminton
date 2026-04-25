@@ -1,3 +1,4 @@
+import { confirmAction } from "../../components/ConfirmModal";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
@@ -131,7 +132,7 @@ export default function AdminSettingsPage() {
   };
 
   const handleDeleteUser = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     const t = localStorage.getItem("accessToken");
     if (!t) return;
     if (confirm("Are you sure you want to remove this staff? This will change their role to 'user'.")) {

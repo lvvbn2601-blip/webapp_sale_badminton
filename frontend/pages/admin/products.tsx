@@ -1,3 +1,4 @@
+import { confirmAction } from "../../components/ConfirmModal";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState, useCallback } from "react";
@@ -94,7 +95,8 @@ type ProductForm = {
   images: string[];
   category: string;
   brand: string;
-  basePrice: string;
+  basePrice: string; // Used as Selling Price
+  purchasePrice: string;
   stock: string;
   status: string;
   isTrending: boolean;
@@ -173,6 +175,7 @@ export default function AdminProductsPage() {
     category: "",
     brand: "",
     basePrice: "",
+    purchasePrice: "",
     stock: "0",
     status: "active",
     isTrending: false,
@@ -467,7 +470,7 @@ export default function AdminProductsPage() {
   };
 
   const handleDeleteUser = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Are you sure you want to delete this user?")) return;
     if (usingMockData || !token) {
       setUsers(users.filter((u) => (u._id !== id && u.id !== id)));
@@ -532,6 +535,7 @@ export default function AdminProductsPage() {
       category: "",
       brand: "",
       basePrice: "",
+      purchasePrice: "",
       stock: "0",
       status: "active",
       isTrending: false,
@@ -561,6 +565,7 @@ export default function AdminProductsPage() {
       category: String(p.category?._id || p.category || ""),
       brand: String(p.brand?._id || p.brand || ""),
       basePrice: String(p.basePrice ?? p.price ?? ""),
+      purchasePrice: String(p.purchasePrice ?? ""),
       stock: String(p.stock ?? 0),
       status: p.status || "active",
       isTrending: Boolean(p.isTrending),
@@ -584,6 +589,7 @@ export default function AdminProductsPage() {
         image: productForm.images[0] || undefined,
         images: productForm.images.filter(Boolean),
         basePrice: Number(productForm.basePrice || 0),
+        purchasePrice: Number(productForm.purchasePrice || 0),
         stock: Number(productForm.stock || 0),
         status: productForm.status || "active",
         category: productForm.category,
@@ -634,7 +640,7 @@ export default function AdminProductsPage() {
   };
 
   const removeProduct = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Delete this product?")) return;
     const prev = products;
     setProducts((p: any) => p.filter((x: any) => ((x as any)._id || x.id) !== id));
@@ -721,7 +727,7 @@ export default function AdminProductsPage() {
   };
 
   const removeBrand = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Delete this brand?")) return;
     const prev = brands;
     setBrands((b) => b.filter((x) => (x._id || x.id) !== id));
@@ -808,7 +814,7 @@ export default function AdminProductsPage() {
   };
 
   const removeCategory = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
+    if (!(await confirmAction("Are you sure you want to delete this?"))) return;
     if (!confirm("Delete this category?")) return;
     const prev = categories;
     setCategories((c) => c.filter((x) => (x._id || x.id) !== id));
@@ -1223,9 +1229,22 @@ export default function AdminProductsPage() {
                     </div>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="grid gap-4 sm:grid-cols-4">
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-secondary/70">Price *</label>
+                      <label className="mb-1 block text-xs font-semibold text-secondary/70">Purchase Price *</label>
+                      <input
+                        className="w-full rounded-xl border border-black/5 bg-white px-4 py-3 text-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        placeholder="0.00"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={productForm.purchasePrice}
+                        onChange={(e) => setProductForm((p) => ({ ...p, purchasePrice: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-secondary/70">Selling Price *</label>
                       <input
                         className="w-full rounded-xl border border-black/5 bg-white px-4 py-3 text-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                         placeholder="0.00"
@@ -1614,7 +1633,15 @@ function buildDashboard(args: { dash: { users: number; orders: number; products:
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const ordersThisMonth = args.orders.filter(o => String(o.createdAt) >= thisMonthStart);
   const revenueThisMonth = ordersThisMonth.reduce((sum, o) => sum + Number(o.total || 0), 0);
-  const profitThisMonth = revenueThisMonth * 0.32; // Mock profit margin
+  
+  let profitThisMonth = 0;
+  ordersThisMonth.forEach((o) => {
+    (o.items || []).forEach((item: any) => {
+      const sellPrice = Number(item.price || 0);
+      const buyPrice = Number(item.product?.purchasePrice || 0);
+      profitThisMonth += (sellPrice - buyPrice) * Number(item.quantity || 1);
+    });
+  });
 
   const cancelledOrders = args.orders.filter(o => o.status === "cancelled").length;
   const returnRate = args.orders.length ? (cancelledOrders / args.orders.length) * 100 : 0;
