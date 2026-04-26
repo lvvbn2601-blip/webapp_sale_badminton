@@ -294,7 +294,7 @@ export default function ProductDetailPage({ product, related, allCategoryProduct
             const hasMultiple = allImages.length > 1;
 
             return (
-              <div className="sticky top-24 space-y-4">
+              <div className="relative lg:sticky lg:top-24 space-y-4 lg:space-y-6">
                 {/* Main image */}
                 <div
                   className="group relative aspect-square overflow-hidden rounded-[32px] bg-white shadow-xl ring-1 ring-black/5"
@@ -353,17 +353,17 @@ export default function ProductDetailPage({ product, related, allCategoryProduct
                     <>
                       <button
                         onClick={() => setSelectedImageIdx((i) => (i - 1 + allImages.length) % allImages.length)}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-white/80 text-secondary/70 shadow-md backdrop-blur-sm transition hover:bg-white hover:text-secondary opacity-0 group-hover:opacity-100"
+                        className="absolute left-3 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-white/90 text-secondary shadow-lg backdrop-blur-md transition-all hover:bg-white hover:scale-105 lg:opacity-0 lg:group-hover:opacity-100"
                         aria-label="Previous image"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                       </button>
                       <button
                         onClick={() => setSelectedImageIdx((i) => (i + 1) % allImages.length)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-white/80 text-secondary/70 shadow-md backdrop-blur-sm transition hover:bg-white hover:text-secondary opacity-0 group-hover:opacity-100"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-white/90 text-secondary shadow-lg backdrop-blur-md transition-all hover:bg-white hover:scale-105 lg:opacity-0 lg:group-hover:opacity-100"
                         aria-label="Next image"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
                       </button>
                     </>
                   )}
