@@ -14,7 +14,20 @@ const app = express();
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(
   cors({
-    origin: env.clientUrl,
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      
+      // Allows multiple frontend URLs separated by commas (e.g., "http://localhost:3000,https://my-vercel-app.vercel.app")
+      const allowedOrigins = env.clientUrl.split(',').map(url => url.trim());
+      
+      // If CLIENT_URL is set to '*' or origin matches allowed list
+      if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`CORS Blocked: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );
