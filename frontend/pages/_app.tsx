@@ -1,5 +1,6 @@
 import type { AppProps } from "next/app";
 import { Inter, Poppins } from "next/font/google";
+import Head from "next/head";
 import "../styles/globals.css";
 import { CartProvider } from "../context/CartContext";
 import { WishlistProvider } from "../context/WishlistContext";
@@ -21,7 +22,12 @@ const poppins = Poppins({
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   return (
-    <div className={`${inter.variable} ${poppins.variable}`}>
+    <>
+      <Head>
+        <title>Badminton Hub</title>
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+      <div className={`${inter.variable} ${poppins.variable}`}>
       <CartProvider>
         <WishlistProvider>
           <CompareProvider>
@@ -30,5 +36,6 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         </WishlistProvider>
       </CartProvider>
     </div>
+    </>
   );
 }

@@ -489,7 +489,7 @@ export default function ProductDetailPage({ product, related, allCategoryProduct
               </div>
 
               {/* Buttons */}
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-3">
                 <button
                   className={`flex h-14 flex-1 items-center justify-center gap-3 rounded-2xl border-2 text-sm font-bold uppercase tracking-widest transition-all ${addedToCart ? "border-emerald-500 bg-emerald-500 text-white" : "border-black/5 bg-white text-secondary hover:border-black/10 hover:bg-gray-50"} ${!inStock || hasInvalidSelection ? "pointer-events-none opacity-50" : ""}`}
                   onClick={handleAddToCart}
