@@ -1,7 +1,7 @@
 import axios from "axios";
 import { Product, Category } from "../types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000/api";
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 const API_ORIGIN = API_BASE.replace(/\/api\/?$/, ""); // e.g. http://localhost:4000
 
 const api = axios.create({

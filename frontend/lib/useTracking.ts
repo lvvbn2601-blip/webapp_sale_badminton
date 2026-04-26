@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+import { API_BASE } from './api';
 
 // ── Singleton session ID ──
 let SESSION_ID: string | null = null;
@@ -20,7 +19,7 @@ const getUserId = (): string | undefined => {
   try {
     const userObj = JSON.parse(localStorage.getItem('user') || 'null');
     if (userObj) return userObj.id || userObj._id;
-  } catch (e) {}
+  } catch (e) { }
   return undefined;
 };
 
@@ -61,7 +60,7 @@ export const useTracking = () => {
     if (events.length === 0) return;
 
     try {
-      await axios.post(`${API_URL}/tracking/events/batch`, {
+      await axios.post(`${API_BASE}/tracking/events/batch`, {
         events,
         userId: getUserId(),
       });
@@ -93,7 +92,7 @@ export const useTracking = () => {
     // For high-priority events, send immediately
     if (['add_to_cart', 'checkout'].includes(action)) {
       try {
-        await axios.post(`${API_URL}/tracking/event`, {
+        await axios.post(`${API_BASE}/tracking/event`, {
           ...event,
           userId: getUserId(),
         });
@@ -172,7 +171,7 @@ export const useTracking = () => {
       const params: any = { sessionId: SESSION_ID };
       if (userId) params.userId = userId;
 
-      const res = await axios.get(`${API_URL}/tracking/recommendations`, { params });
+      const res = await axios.get(`${API_BASE}/tracking/recommendations`, { params });
       const data = res.data.recommendations;
       setRecommendations(data);
       setBehavioralProfile(data?.profile || 'unclassified');
@@ -206,7 +205,7 @@ export const useTracking = () => {
         );
       }
 
-      const res = await axios.get(`${API_URL}/tracking/vouchers`, { params });
+      const res = await axios.get(`${API_BASE}/tracking/vouchers`, { params });
       setSmartVouchers(res.data.vouchers || []);
       setBehavioralProfile(res.data.behavioralProfile || 'unclassified');
       return res.data.vouchers;
@@ -226,7 +225,7 @@ export const useTracking = () => {
         [JSON.stringify({ events, userId: getUserId() })],
         { type: 'application/json' }
       );
-      navigator.sendBeacon?.(`${API_URL}/tracking/events/batch`, blob);
+      navigator.sendBeacon?.(`${API_BASE}/tracking/events/batch`, blob);
     };
 
     window.addEventListener('beforeunload', handleUnload);
