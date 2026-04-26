@@ -135,7 +135,7 @@ export default function HomePage({ categories, trending, bestSellers, featuredRe
               View all
             </Link>
           </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
             {categories.map((category, idx) => (
               <CategoryCard key={(category as any)._id || category.id || idx} category={category} />
             ))}

@@ -120,7 +120,7 @@ export function ProductGrid({
               </select>
               <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-secondary/30">
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
             </div>
@@ -130,11 +130,10 @@ export function ProductGrid({
               <button
                 type="button"
                 onClick={() => setViewMode("grid")}
-                className={`grid h-8 w-8 place-items-center rounded-lg transition ${
-                  viewMode === "grid"
-                    ? "bg-secondary text-white shadow-sm"
-                    : "text-secondary/40 hover:text-secondary"
-                }`}
+                className={`grid h-8 w-8 place-items-center rounded-lg transition ${viewMode === "grid"
+                  ? "bg-secondary text-white shadow-sm"
+                  : "text-secondary/40 hover:text-secondary"
+                  }`}
                 aria-label="Grid view"
               >
                 <LayoutGrid size={14} />
@@ -142,11 +141,10 @@ export function ProductGrid({
               <button
                 type="button"
                 onClick={() => setViewMode("list")}
-                className={`grid h-8 w-8 place-items-center rounded-lg transition ${
-                  viewMode === "list"
-                    ? "bg-secondary text-white shadow-sm"
-                    : "text-secondary/40 hover:text-secondary"
-                }`}
+                className={`grid h-8 w-8 place-items-center rounded-lg transition ${viewMode === "list"
+                  ? "bg-secondary text-white shadow-sm"
+                  : "text-secondary/40 hover:text-secondary"
+                  }`}
                 aria-label="List view"
               >
                 <List size={14} />
@@ -158,7 +156,7 @@ export function ProductGrid({
 
       {/* Grid view */}
       {viewMode === "grid" && (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-3">
           {products.map((product) => (
             <ProductCard
               key={product.id || (product as any)._id}
