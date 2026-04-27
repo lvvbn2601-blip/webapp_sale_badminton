@@ -20,6 +20,6 @@ router.post("/simulate", authenticate, PaymentController.simulatePayment);
 
 // Legacy aliases (backward compatibility)
 router.post("/create", authenticate, PaymentController.createVnPayPayment);
-router.post("/callback", PaymentController.vnpayReturn);
+router.get("/callback", PaymentController.vnpayReturn);
 
 export default router;

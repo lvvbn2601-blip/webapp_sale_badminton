@@ -12,13 +12,17 @@ router.get("/:id", authenticate, OrderController.getOrder);
 router.post("/:id/cancel", authenticate, OrderController.cancelOrder);
 router.post("/:id/confirm-receipt", authenticate, OrderController.confirmReceipt);
 router.post("/:id/request-return", authenticate, OrderController.requestReturn);
+router.post("/:id/request-refund", authenticate, OrderController.requestRefund);
 
 // Admin actions
 router.put("/:id/status", authenticate, authorize(["admin", "warehouse_staff"]), OrderController.updateStatus);
 router.put("/:id/tracking", authenticate, authorize(["admin", "warehouse_staff"]), OrderController.updateTracking);
 router.put("/:id/stringing", authenticate, authorize(["admin", "warehouse_staff", "knitter"]), OrderController.updateStringingStatus);
+router.post("/:id/confirm-refund", authenticate, authorize(["admin"]), OrderController.confirmRefund);
+router.post("/:id/reject-refund", authenticate, authorize(["admin"]), OrderController.rejectRefund);
 
 // Legacy cancel route
 router.post("/cancel", authenticate, OrderController.cancelOrder);
 
 export default router;
+

@@ -3,19 +3,21 @@ import Head from "next/head";
 import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import { Layout } from "../../components/Layout";
-import { fetchProfile, updateProfile, uploadImage, fetchUserOrders, fetchNotifications, markNotificationRead, markAllNotificationsRead, createReview, cancelUserOrder, confirmReceipt, requestReturn, fetchUserReviews, updateReview, getPaymentStatus } from "../../lib/api";
+import { fetchProfile, updateProfile, uploadImage, fetchUserOrders, fetchNotifications, markNotificationRead, markAllNotificationsRead, createReview, cancelUserOrder, confirmReceipt, requestReturn, requestRefund, fetchUserReviews, updateReview, getPaymentStatus } from "../../lib/api";
 import { useRouter } from "next/router";
 import { User, Package, Bell, Ticket, Camera, Save, Lock, MapPin, CheckCircle2, Clock, ChevronDown, ChevronRight, Plus, Trash2, ShoppingCart, Truck, Eye, Star, X, } from "lucide-react";
 import Image from "next/image";
 
-type OrderStatus = "pending" | "confirmed" | "delivered" | "received" | "returned" | "cancelled";
+type OrderStatus = "paid" | "pending" | "confirmed" | "delivered" | "received" | "returned" | "cancelled" | "refund_requested";
 const statusLabel: Partial<Record<OrderStatus, string>> = {
   pending: "Pending Confirmation",
+  paid: "Pending Confirmation",
   confirmed: "Pending Delivery",
   delivered: "Delivered",
   received: "Received",
   returned: "Returned",
   cancelled: "Cancelled",
+  refund_requested: "Refund Requested",
 };
 
 const tabs = [
@@ -30,11 +32,13 @@ type TabKey = typeof tabs[number]["key"];
 
 const statusBadge: Record<string, { label: string; cls: string }> = {
   pending: { label: "Pending Confirmation", cls: "bg-amber-100 text-amber-700" },
+  paid: { label: "Paid", cls: "bg-green-100 text-green-700" },
   confirmed: { label: "Pending Delivery", cls: "bg-blue-100 text-blue-700" },
   delivered: { label: "Delivered", cls: "bg-purple-100 text-purple-700" },
   received: { label: "Received", cls: "bg-emerald-100 text-emerald-700" },
   returned: { label: "Returned", cls: "bg-red-100 text-red-700" },
   cancelled: { label: "Cancelled", cls: "bg-red-100 text-red-700" },
+  refund_requested: { label: "Refund Requested", cls: "bg-orange-100 text-orange-700" },
 };
 
 export default function ProfilePurchasesPage() {
@@ -53,6 +57,9 @@ export default function ProfilePurchasesPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [returnModal, setReturnModal] = useState<string | null>(null);
   const [returnReason, setReturnReasonText] = useState("");
+  const [refundModal, setRefundModal] = useState<string | null>(null);
+  const [refundReasonPreset, setRefundReasonPreset] = useState("");
+  const [refundReasonCustom, setRefundReasonCustom] = useState("");
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<any[]>([]);
 
@@ -95,7 +102,10 @@ export default function ProfilePurchasesPage() {
 
   const filteredOrders = useMemo(() => {
     if (activePurchaseTab === "cancelled") {
-      return orders.filter((o) => o.status === "returned" || o.status === "cancelled");
+      return orders.filter((o) => o.status === "returned" || o.status === "cancelled" || o.status === "refund_requested");
+    }
+    if (activePurchaseTab === "pending") {
+      return orders.filter((o) => o.status === "pending" || o.status === "paid");
     }
     return orders.filter((o) => o.status === activePurchaseTab);
   }, [orders, activePurchaseTab]);
@@ -104,8 +114,12 @@ export default function ProfilePurchasesPage() {
     const counts: Record<string, number> = {};
     tabs.forEach((t) => {
       if (t.key === "cancelled") {
-        counts[t.key] = orders.filter((o) => o.status === "returned" || o.status === "cancelled").length;
-      } else {
+        counts[t.key] = orders.filter((o) => o.status === "returned" || o.status === "cancelled" || o.status === "refund_requested").length;
+      }
+      else if (t.key === "pending") {
+        counts[t.key] = orders.filter((o) => o.status === "pending" || o.status === "paid").length;
+      }
+      else {
         counts[t.key] = orders.filter((o) => o.status === t.key).length;
       }
     });
@@ -146,9 +160,38 @@ export default function ProfilePurchasesPage() {
       await requestReturn(orderId, returnReason.trim(), token);
       setReturnModal(null);
       setReturnReasonText("");
+      setOrders((prev) => prev.map((o) => (o._id === orderId || o.id === orderId) ? { ...o, refundStatus: "requested", returnReason: returnReason.trim() } : o));
       alert("Return request submitted. The admin will review your request.");
     } catch (e: any) {
       alert(e?.response?.data?.error || "Failed to submit return request");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const REFUND_REASONS = [
+    { value: "defective_product", label: "🔧 Defective product" },
+    { value: "wrong_item", label: "📦 Wrong item received" },
+    { value: "out_of_stock", label: "❌ Product out of stock" },
+    { value: "changed_mind", label: "🤔 Changed my mind" },
+    { value: "found_cheaper", label: "💰 Found a cheaper price" },
+    { value: "duplicate_order", label: "🔁 Duplicate order" },
+    { value: "other", label: "✏️ Other (specify below)" },
+  ];
+
+  const handleRequestRefund = async (orderId: string) => {
+    const reason = refundReasonPreset === "other" ? refundReasonCustom.trim() : REFUND_REASONS.find(r => r.value === refundReasonPreset)?.label.replace(/^[^\s]+\s/, '') || refundReasonCustom.trim();
+    if (!token || !reason) return;
+    setActionLoading(orderId);
+    try {
+      await requestRefund(orderId, reason, token);
+      setRefundModal(null);
+      setRefundReasonPreset("");
+      setRefundReasonCustom("");
+      setOrders((prev) => prev.map((o) => (o._id === orderId || o.id === orderId) ? { ...o, status: "refund_requested", refundStatus: "requested", cancelReason: reason } : o));
+      alert("Refund request submitted. The admin will review and process your refund.");
+    } catch (e: any) {
+      alert(e?.response?.data?.error || "Failed to submit refund request");
     } finally {
       setActionLoading(null);
     }
@@ -478,7 +521,7 @@ export default function ProfilePurchasesPage() {
 
                   {/* Orders list */}
                   <div className="space-y-4">
-                    {filteredOrders.map((o) => {
+                    {filteredOrders.slice().reverse().map((o) => {
                       const id = oid(o);
                       const badge = statusBadge[o.status] || { label: o.status, cls: "bg-gray-100 text-gray-600" };
                       const isActioning = actionLoading === id;
@@ -627,6 +670,34 @@ export default function ProfilePurchasesPage() {
                             </div>
                           )}
 
+                          {o.status === "paid" && (
+                            <div className="flex items-center justify-end gap-3 border-t border-black/5 px-5 py-3">
+                              <div className="flex-1 flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 border border-green-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                  Waiting for confirmation
+                                </span>
+                              </div>
+                              <button
+                                disabled={isActioning}
+                                onClick={() => setRefundModal(id)}
+                                className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                              >
+                                {isActioning ? "Processing..." : "Cancel and Refund"}
+                              </button>
+                            </div>
+                          )}
+
+                          {o.status === "refund_requested" && (
+                            <div className="border-t border-black/5 px-5 py-3 bg-orange-50/50">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                                <span className="text-sm font-bold text-orange-700">Refund Request Pending Review</span>
+                              </div>
+                              {o.cancelReason && <p className="text-xs text-secondary/60 ml-4">Reason: <span className="font-semibold text-secondary">{o.cancelReason}</span></p>}
+                            </div>
+                          )}
+
                           {o.status === "delivered" && (
                             <div className="flex items-center justify-end gap-3 border-t border-black/5 px-5 py-3">
                               <button
@@ -646,9 +717,14 @@ export default function ProfilePurchasesPage() {
                             </div>
                           )}
 
-                          {o.status === "returned" && o.returnReason && (
-                            <div className="border-t border-black/5 px-5 py-3">
-                              <p className="text-xs text-secondary/60">Return reason: <span className="font-semibold text-secondary">{o.returnReason}</span></p>
+                          {o.status === "returned" && (
+                            <div className="border-t border-black/5 px-5 py-3 bg-green-50/30">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-green-600">✅</span>
+                                <span className="text-sm font-bold text-green-700">Refund Completed</span>
+                              </div>
+                              {(o.returnReason || o.cancelReason) && <p className="text-xs text-secondary/60 ml-6">Reason: <span className="font-semibold text-secondary">{o.returnReason || o.cancelReason}</span></p>}
+                              {o.refundAmount && <p className="text-xs text-green-600 ml-6 font-semibold">Refund amount: ${o.refundAmount.toFixed(2)}</p>}
                             </div>
                           )}
                         </div>
@@ -692,6 +768,70 @@ export default function ProfilePurchasesPage() {
                 className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
               >
                 {actionLoading === returnModal ? "Submitting..." : "Submit Return Request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Refund Request Modal */}
+      {refundModal && (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-4 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) { setRefundModal(null); setRefundReasonPreset(""); setRefundReasonCustom(""); } }}>
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-lg">💸</div>
+              <div>
+                <h3 className="font-heading text-xl font-semibold text-secondary">Request Refund</h3>
+                <p className="text-xs text-secondary/50">Your order payment will be refunded after admin review</p>
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-secondary/60">Please select a reason for requesting a refund:</p>
+
+            <div className="mt-4 space-y-2">
+              {REFUND_REASONS.map((r) => (
+                <label
+                  key={r.value}
+                  className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium cursor-pointer transition-all ${refundReasonPreset === r.value
+                    ? "border-orange-400 bg-orange-50 text-orange-800 shadow-sm"
+                    : "border-black/10 bg-gray-50 text-secondary/80 hover:bg-gray-100"
+                    }`}
+                >
+                  <input
+                    type="radio"
+                    name="refund_reason"
+                    value={r.value}
+                    checked={refundReasonPreset === r.value}
+                    onChange={() => setRefundReasonPreset(r.value)}
+                    className="accent-orange-500"
+                  />
+                  {r.label}
+                </label>
+              ))}
+            </div>
+
+            {refundReasonPreset === "other" && (
+              <textarea
+                className="mt-3 w-full rounded-xl border border-black/10 bg-gray-50 px-4 py-3 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                rows={3}
+                placeholder="Please describe your reason..."
+                value={refundReasonCustom}
+                onChange={(e) => setRefundReasonCustom(e.target.value)}
+              />
+            )}
+
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                onClick={() => { setRefundModal(null); setRefundReasonPreset(""); setRefundReasonCustom(""); }}
+                className="rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold text-secondary transition hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!refundReasonPreset || (refundReasonPreset === "other" && !refundReasonCustom.trim()) || actionLoading === refundModal}
+                onClick={() => handleRequestRefund(refundModal)}
+                className="rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
+              >
+                {actionLoading === refundModal ? "Submitting..." : "Submit Refund Request"}
               </button>
             </div>
           </div>

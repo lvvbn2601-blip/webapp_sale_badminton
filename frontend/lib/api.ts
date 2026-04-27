@@ -164,6 +164,27 @@ export const requestReturn = async (orderId: string, reason: string, token: stri
   return data.data;
 };
 
+export const requestRefund = async (orderId: string, reason: string, token: string) => {
+  const { data } = await api.post(`/orders/${orderId}/request-refund`, { reason }, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+export const confirmRefund = async (orderId: string, token: string) => {
+  const { data } = await api.post(`/orders/${orderId}/confirm-refund`, {}, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+export const rejectRefund = async (orderId: string, reason: string, token: string) => {
+  const { data } = await api.post(`/orders/${orderId}/reject-refund`, { reason }, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
 export const updateOrderTracking = async (orderId: string, trackingNumber: string, carrier: string, token: string) => {
   const { data } = await api.put(`/orders/${orderId}/tracking`, { trackingNumber, carrier }, {
     headers: { Authorization: `Bearer ${token}` },

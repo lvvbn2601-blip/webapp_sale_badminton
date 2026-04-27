@@ -283,6 +283,38 @@ export const cancelOrder = async (orderId: string, userId: string) => {
   return order;
 };
 
+/** User requests refund for a paid order (not yet confirmed by admin) - Case 1 */
+export const requestRefund = async (orderId: string, userId: string, reason: string) => {
+  const order = await Order.findById(orderId);
+  if (!order) throw new ApiError(404, "Order not found");
+  if (String(order.user) !== userId) throw new ApiError(403, "Not your order");
+  if (order.status !== "paid") {
+    throw new ApiError(400, "You can only request a refund for paid orders that are not yet confirmed");
+  }
+
+  order.status = "refund_requested" as any;
+  order.cancelReason = reason;
+  order.cancelRequestedAt = new Date();
+  order.refundStatus = "requested";
+  order.refundAmount = order.total;
+  order.statusHistory.push({
+    status: "refund_requested",
+    changedAt: new Date(),
+    note: `Refund requested by customer: ${reason}`,
+  });
+  await order.save();
+
+  const shortId = String(order._id).slice(-8).toUpperCase();
+  await NotificationService.notifyAdmins({
+    type: "return_request",
+    title: "Refund Request (Paid Order)",
+    message: `Customer requested a refund for paid order #${shortId}. Reason: ${reason}`,
+    orderId: String(order._id),
+  });
+
+  return order;
+};
+
 /** User confirms receipt (only allowed if status is 'delivered') */
 export const confirmReceipt = async (orderId: string, userId: string) => {
   const order = await Order.findById(orderId);
@@ -316,17 +348,19 @@ export const confirmReceipt = async (orderId: string, userId: string) => {
   return order;
 };
 
-/** User requests return (only allowed if status is 'delivered') */
+/** User requests return (only allowed if status is 'delivered' or 'received') - Case 2 */
 export const requestReturn = async (orderId: string, userId: string, reason: string) => {
   const order = await Order.findById(orderId);
   if (!order) throw new ApiError(404, "Order not found");
   if (String(order.user) !== userId) throw new ApiError(403, "Not your order");
-  if (order.status !== "delivered") {
-    throw new ApiError(400, "You can only return orders that have been delivered");
+  if (order.status !== "delivered" && order.status !== "received") {
+    throw new ApiError(400, "You can only return orders that have been delivered or received");
   }
 
   order.returnReason = reason;
   order.returnRequestedAt = new Date();
+  order.refundStatus = "requested";
+  order.refundAmount = order.total;
   order.statusHistory.push({
     status: "return_requested",
     changedAt: new Date(),
@@ -339,6 +373,77 @@ export const requestReturn = async (orderId: string, userId: string, reason: str
     type: "return_request",
     title: "Return Request",
     message: `Customer requested a return for order #${shortId}. Reason: ${reason}`,
+    orderId: String(order._id),
+  });
+
+  return order;
+};
+
+/** Admin confirms refund — calls payment provider's refund API */
+export const confirmRefund = async (orderId: string, adminId: string) => {
+  const order = await Order.findById(orderId);
+  if (!order) throw new ApiError(404, "Order not found");
+
+  // Allow refund for orders that are refund_requested, or have returnReason + delivered/received status
+  const isRefundRequest = order.status === "refund_requested";
+  const isReturnRequest = order.returnReason && (order.status === "delivered" || order.status === "received" || order.refundStatus === "requested");
+  
+  if (!isRefundRequest && !isReturnRequest) {
+    throw new ApiError(400, "This order does not have a pending refund/return request");
+  }
+
+  const { processRefund } = await import("./paymentService");
+  const result = await processRefund(orderId, adminId);
+
+  // Restore inventory
+  const orderItems = await OrderItem.find({ order: order._id });
+  await Promise.all(
+    orderItems.map(async (item: any) => {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { stock: item.quantity },
+      });
+    })
+  );
+
+  const shortId = String(order._id).slice(-8).toUpperCase();
+  await NotificationService.createNotification({
+    userId: String(order.user),
+    type: "return_approved",
+    title: "Refund Approved",
+    message: `Your refund for order #${shortId} has been approved and processed. Amount: $${result.amount.toFixed(2)} via ${result.provider.toUpperCase()}.`,
+    orderId: String(order._id),
+  });
+
+  return result;
+};
+
+/** Admin rejects refund request */
+export const rejectRefund = async (orderId: string, adminId: string, reason?: string) => {
+  const order = await Order.findById(orderId);
+  if (!order) throw new ApiError(404, "Order not found");
+
+  // Determine which previous status to restore
+  let restoredStatus = "paid";
+  if (order.returnReason && !order.cancelReason) {
+    restoredStatus = "delivered"; // Was a return request from delivered
+  }
+
+  order.status = restoredStatus as any;
+  order.refundStatus = "rejected";
+  order.statusHistory.push({
+    status: restoredStatus,
+    changedAt: new Date(),
+    changedBy: adminId as any,
+    note: `Refund/return request rejected by admin.${reason ? ` Reason: ${reason}` : ""}`,
+  });
+  await order.save();
+
+  const shortId = String(order._id).slice(-8).toUpperCase();
+  await NotificationService.createNotification({
+    userId: String(order.user),
+    type: "order_status",
+    title: "Refund Request Rejected",
+    message: `Your refund request for order #${shortId} has been rejected.${reason ? ` Reason: ${reason}` : ""} Please contact support for more details.`,
     orderId: String(order._id),
   });
 

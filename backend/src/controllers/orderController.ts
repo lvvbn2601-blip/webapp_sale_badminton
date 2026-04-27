@@ -86,6 +86,27 @@ export const requestReturn = asyncHandler(async (req: AuthRequest, res: Response
   res.json(ok(order));
 });
 
+export const requestRefund = asyncHandler(async (req: AuthRequest, res: Response) => {
+  if (!req.user) throw new ApiError(401, "Unauthorized");
+  const { reason } = req.body;
+  if (!reason) throw new ApiError(400, "Refund reason is required");
+  const order = await OrderService.requestRefund(String(req.params.id), req.user.sub, reason);
+  res.json(ok(order));
+});
+
+export const confirmRefund = asyncHandler(async (req: AuthRequest, res: Response) => {
+  if (!req.user) throw new ApiError(401, "Unauthorized");
+  const result = await OrderService.confirmRefund(String(req.params.id), req.user.sub);
+  res.json(ok(result));
+});
+
+export const rejectRefund = asyncHandler(async (req: AuthRequest, res: Response) => {
+  if (!req.user) throw new ApiError(401, "Unauthorized");
+  const { reason } = req.body;
+  const order = await OrderService.rejectRefund(String(req.params.id), req.user.sub, reason);
+  res.json(ok(order));
+});
+
 export const updateTracking = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { trackingNumber, carrier } = req.body;
   if (!trackingNumber) throw new ApiError(400, "Tracking number is required");
@@ -98,3 +119,4 @@ export const updateStringingStatus = asyncHandler(async (req: AuthRequest, res: 
   const order = await OrderService.updateStringingStatus(req.params.id as string, stringingStatus);
   res.json(ok(order));
 });
+

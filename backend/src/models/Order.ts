@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-export type OrderStatus = "pending" | "paid" | "confirmed" | "delivered" | "received" | "returned" | "cancelled";
+export type OrderStatus = "pending" | "paid" | "confirmed" | "delivered" | "received" | "returned" | "cancelled" | "refund_requested";
 
 export interface IOrder extends Document {
   user: mongoose.Types.ObjectId;
@@ -21,6 +21,10 @@ export interface IOrder extends Document {
   stringingStatus?: "pending" | "in_progress" | "completed";
   returnReason?: string;
   returnRequestedAt?: Date;
+  cancelReason?: string;
+  cancelRequestedAt?: Date;
+  refundStatus?: "none" | "requested" | "approved" | "rejected" | "completed";
+  refundAmount?: number;
   statusHistory: Array<{
     status: string;
     changedAt: Date;
@@ -40,7 +44,7 @@ const OrderSchema = new Schema<IOrder>(
     total: { type: Number, required: true },
     status: {
       type: String,
-      enum: ["pending", "paid", "confirmed", "delivered", "received", "returned", "cancelled"],
+      enum: ["pending", "paid", "confirmed", "delivered", "received", "returned", "cancelled", "refund_requested"],
       default: "pending",
     },
     shippingAddress: { type: String, required: true },
@@ -56,6 +60,14 @@ const OrderSchema = new Schema<IOrder>(
     },
     returnReason: { type: String },
     returnRequestedAt: { type: Date },
+    cancelReason: { type: String },
+    cancelRequestedAt: { type: Date },
+    refundStatus: {
+      type: String,
+      enum: ["none", "requested", "approved", "rejected", "completed"],
+      default: "none",
+    },
+    refundAmount: { type: Number },
     statusHistory: [
       {
         status: { type: String },

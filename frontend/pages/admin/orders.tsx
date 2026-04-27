@@ -31,6 +31,8 @@ import {
   fetchUnreadNotificationCount,
   updateOrderTracking,
   updateStringingStatus,
+  confirmRefund,
+  rejectRefund,
 } from "../../lib/api";
 import { brands as mockBrands, categories as mockCategories, products as mockProducts, users as mockUsers } from "../../data/mockData";
 import { Brand, Category, Product } from "../../types";
@@ -78,6 +80,9 @@ type AdminOrder = {
   needsStringing?: boolean;
   stringingStatus?: string;
   returnReason?: string;
+  cancelReason?: string;
+  refundStatus?: string;
+  refundAmount?: number;
   paymentInfo?: {
     status: string;
     provider: string;
@@ -168,6 +173,13 @@ export default function AdminOrdersPage() {
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
+  const [refundOrderId, setRefundOrderId] = useState<string | null>(null);
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
+  const [rejectRefundModalOpen, setRejectRefundModalOpen] = useState(false);
+  const [rejectRefundOrderId, setRejectRefundOrderId] = useState<string | null>(null);
+  const [rejectRefundReason, setRejectRefundReason] = useState("");
+  const [rejectRefundSubmitting, setRejectRefundSubmitting] = useState(false);
 
   // Product management state
   const [productQuery, setProductQuery] = useState("");
@@ -475,6 +487,45 @@ export default function AdminOrdersPage() {
       }
     } catch (e: any) {
       alert(e?.response?.data?.error || "Failed to update stringing status");
+    }
+  };
+
+  const handleConfirmRefund = async () => {
+    if (!refundOrderId || !token) return;
+    setRefundSubmitting(true);
+    try {
+      await confirmRefund(refundOrderId, token);
+      setOrders(orders.map(o => o._id === refundOrderId ? { ...o, status: 'returned', refundStatus: 'completed' } : o));
+      if (selectedOrder?._id === refundOrderId) {
+        setSelectedOrder({ ...selectedOrder, status: 'returned', refundStatus: 'completed' });
+      }
+      setRefundModalOpen(false);
+      setRefundOrderId(null);
+      alert("Refund processed successfully!");
+    } catch (e: any) {
+      alert(e?.response?.data?.error || "Failed to process refund");
+    } finally {
+      setRefundSubmitting(false);
+    }
+  };
+
+  const handleRejectRefund = async () => {
+    if (!rejectRefundOrderId || !token) return;
+    setRejectRefundSubmitting(true);
+    try {
+      await rejectRefund(rejectRefundOrderId, rejectRefundReason, token);
+      const restoredStatus = orders.find(o => o._id === rejectRefundOrderId)?.returnReason ? 'delivered' : 'paid';
+      setOrders(orders.map(o => o._id === rejectRefundOrderId ? { ...o, status: restoredStatus, refundStatus: 'rejected' } : o));
+      if (selectedOrder?._id === rejectRefundOrderId) {
+        setSelectedOrder({ ...selectedOrder, status: restoredStatus, refundStatus: 'rejected' });
+      }
+      setRejectRefundModalOpen(false);
+      setRejectRefundOrderId(null);
+      setRejectRefundReason("");
+    } catch (e: any) {
+      alert(e?.response?.data?.error || "Failed to reject refund");
+    } finally {
+      setRejectRefundSubmitting(false);
     }
   };
 
@@ -911,6 +962,7 @@ export default function AdminOrdersPage() {
                 { id: "delivered", label: "Delivered" },
                 { id: "received", label: "Received" },
                 { id: "cancelled", label: "Cancelled" },
+               { id: "refund_requested", label: "⚠️ Refund Requests" },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -986,6 +1038,7 @@ export default function AdminOrdersPage() {
                           <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold shadow-sm
                             ${o.status === "pending" ? (o.paymentInfo?.status === "pending" ? "bg-orange-50 text-orange-600 border border-orange-200" : "bg-yellow-50 text-yellow-600 border border-yellow-200") :
                               o.status === "paid" ? "bg-green-50 text-green-600 border border-green-200" :
+                                o.status === "refund_requested" ? "bg-orange-50 text-orange-600 border border-orange-200" :
                                 o.status === "confirmed" ? "bg-blue-50 text-blue-600 border border-blue-200" :
                                   o.status === "shipped" ? "bg-indigo-50 text-indigo-600 border border-indigo-200" :
                                     o.status === "delivered" ? "bg-purple-50 text-purple-600 border border-purple-200" :
@@ -995,15 +1048,17 @@ export default function AdminOrdersPage() {
                           >
                             <span className={`w-1.5 h-1.5 rounded-full mr-2 
                               ${o.status === "pending" ? (o.paymentInfo?.status === "pending" ? "bg-orange-500" : "bg-yellow-500") :
-                                o.status === "paid" ? "bg-green-500" : o.status === "confirmed" ? "bg-blue-500" :
+                                o.status === "paid" ? "bg-green-500" : o.status === "refund_requested" ? "bg-orange-500" : o.status === "confirmed" ? "bg-blue-500" :
                                   o.status === "shipped" ? "bg-indigo-500" : o.status === "delivered" ? "bg-purple-500" :
                                     o.status === "received" ? "bg-emerald-500" : "bg-red-500"}`}
                             ></span>
                             {o.status === "pending" ? (o.paymentInfo?.status === "pending" ? "⏳ Waiting Payment" : "📝 Pending") :
                               o.status === "paid" ? "💰 Paid" :
+                                o.status === "refund_requested" ? "⚠️ Refund" :
                                 o.status === "confirmed" ? (o.needsStringing && o.stringingStatus !== 'completed' ? '🧵 Stringing' : '🚚 Delivery') :
                                   o.status === "received" ? "✅ Received" : o.status === "shipped" ? "Shipped" :
-                                    o.status === "delivered" ? "📦 Delivered" : "❌ Cancelled"}
+                                    o.status === "delivered" ? "📦 Delivered" : 
+                                      o.status === "returned" ? "↩️ Returned" : "❌ Cancelled"}
                           </span>
                         </td>
                       </tr>
@@ -1195,6 +1250,52 @@ export default function AdminOrdersPage() {
                           </div>
                         )}
                       </div>
+
+                      {/* Refund Request Panel */}
+                      {(selectedOrder.status === 'refund_requested' || (selectedOrder.returnReason && selectedOrder.refundStatus === 'requested')) && (
+                        <div className="mt-4 p-5 rounded-2xl border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-amber-50 shadow-sm">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-xl">⚠️</div>
+                            <div>
+                              <p className="text-sm font-black text-orange-800">Refund/Return Request</p>
+                              <p className="text-[11px] text-orange-600/80 font-medium">Customer has requested a refund for this order</p>
+                            </div>
+                          </div>
+                          {(selectedOrder.cancelReason || selectedOrder.returnReason) && (
+                            <div className="mb-4 p-3 rounded-xl bg-white/80 border border-orange-200">
+                              <p className="text-[11px] font-bold text-secondary/40 uppercase tracking-wider mb-1">Customer's Reason</p>
+                              <p className="text-sm font-semibold text-secondary">{selectedOrder.cancelReason || selectedOrder.returnReason}</p>
+                            </div>
+                          )}
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => { setRefundOrderId(selectedOrder._id); setRefundModalOpen(true); }}
+                              className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white py-3 rounded-2xl text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
+                            >
+                              ✅ Confirm Refund
+                            </button>
+                            <button
+                              onClick={() => { setRejectRefundOrderId(selectedOrder._id); setRejectRefundReason(""); setRejectRefundModalOpen(true); }}
+                              className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-3 rounded-2xl text-sm font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                              ❌ Reject Request
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Refund Completed Banner */}
+                      {selectedOrder.status === 'returned' && selectedOrder.refundStatus === 'completed' && (
+                        <div className="mt-4 p-4 rounded-2xl border border-green-200 bg-green-50/80">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-xl">✅</div>
+                            <div>
+                              <p className="text-sm font-black text-green-800">Refund Completed</p>
+                              {selectedOrder.refundAmount && <p className="text-xs text-green-600 font-semibold">Amount: ${selectedOrder.refundAmount.toFixed(2)}</p>}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1345,6 +1446,117 @@ export default function AdminOrdersPage() {
                   className="flex-1 bg-red-50 text-red-600 hover:bg-red-100 hover:shadow-lg hover:shadow-red-500/10 py-3.5 rounded-2xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95 text-sm"
                 >
                   {cancelSubmitting ? <span className="animate-spin inline-block">⏳</span> : 'Confirm Cancel'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalOverlay>
+      )}
+
+      {/* Refund Confirm Modal */}
+      {refundModalOpen && (
+        <ModalOverlay onClose={() => !refundSubmitting && setRefundModalOpen(false)}>
+          <div className="bg-white rounded-[24px] p-8 max-w-md w-full shadow-2xl relative select-none">
+            <button
+              onClick={() => !refundSubmitting && setRefundModalOpen(false)}
+              className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center bg-black/5 hover:bg-red-50 text-secondary hover:text-red-500 rounded-full transition-all"
+            >
+              ✕
+            </button>
+            <div className="text-4xl mb-4">💸</div>
+            <h3 className="text-2xl font-black text-secondary tracking-tight mb-2">Confirm Refund</h3>
+            <p className="text-sm font-medium text-secondary/60 mb-4 max-w-[90%]">
+              This will call the payment provider's API to process the refund and change the order status to "Returned".
+            </p>
+            {(() => {
+              const o = orders.find(o => o._id === refundOrderId);
+              if (!o) return null;
+              return (
+                <div className="p-4 rounded-xl bg-gray-50 border border-black/5 space-y-2 mb-6">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-secondary/60">Order</span>
+                    <span className="font-bold text-secondary">#{o._id.slice(-8).toUpperCase()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-secondary/60">Customer</span>
+                    <span className="font-bold text-secondary">{o.recipientName || o.user?.name || "Unknown"}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-secondary/60">Payment</span>
+                    <span className="font-bold text-secondary">{o.paymentInfo?.provider?.toUpperCase() || o.payment?.toUpperCase() || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t border-black/5 pt-2">
+                    <span className="text-secondary/60">Refund Amount</span>
+                    <span className="font-black text-lg text-red-600">${o.total.toFixed(2)}</span>
+                  </div>
+                  {(o.cancelReason || o.returnReason) && (
+                    <div className="text-xs text-secondary/60 mt-1">
+                      Reason: <span className="font-semibold text-secondary">{o.cancelReason || o.returnReason}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRefundModalOpen(false)}
+                disabled={refundSubmitting}
+                className="flex-1 bg-black/5 hover:bg-black/10 text-secondary py-3.5 rounded-2xl font-bold transition-all disabled:opacity-50 active:scale-95 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmRefund}
+                disabled={refundSubmitting}
+                className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white py-3.5 rounded-2xl font-bold shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95 text-sm"
+              >
+                {refundSubmitting ? <span className="animate-spin inline-block">⏳</span> : '✅ Process Refund'}
+              </button>
+            </div>
+          </div>
+        </ModalOverlay>
+      )}
+
+      {/* Reject Refund Modal */}
+      {rejectRefundModalOpen && (
+        <ModalOverlay onClose={() => !rejectRefundSubmitting && setRejectRefundModalOpen(false)}>
+          <div className="bg-white rounded-[24px] p-8 max-w-md w-full shadow-2xl relative select-none">
+            <button
+              onClick={() => !rejectRefundSubmitting && setRejectRefundModalOpen(false)}
+              className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center bg-black/5 hover:bg-red-50 text-secondary hover:text-red-500 rounded-full transition-all"
+            >
+              ✕
+            </button>
+            <div className="text-4xl mb-4">❌</div>
+            <h3 className="text-2xl font-black text-secondary tracking-tight mb-2">Reject Refund Request</h3>
+            <p className="text-sm font-medium text-secondary/60 mb-6 max-w-[90%]">
+              The order will be restored to its previous status and the customer will be notified.
+            </p>
+
+            <div className="space-y-4">
+              <textarea
+                className="w-full rounded-2xl border-none bg-black/5 p-4 text-sm font-medium focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all mb-4 min-h-[100px] resize-none"
+                placeholder="Reason for rejection (optional)..."
+                value={rejectRefundReason}
+                onChange={(e) => setRejectRefundReason(e.target.value)}
+                disabled={rejectRefundSubmitting}
+              />
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setRejectRefundModalOpen(false)}
+                  disabled={rejectRefundSubmitting}
+                  className="flex-1 bg-black/5 hover:bg-black/10 text-secondary py-3.5 rounded-2xl font-bold transition-all disabled:opacity-50 active:scale-95 text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRejectRefund}
+                  disabled={rejectRefundSubmitting}
+                  className="flex-1 bg-red-50 text-red-600 hover:bg-red-100 hover:shadow-lg hover:shadow-red-500/10 py-3.5 rounded-2xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95 text-sm"
+                >
+                  {rejectRefundSubmitting ? <span className="animate-spin inline-block">⏳</span> : 'Reject Request'}
                 </button>
               </div>
             </div>
