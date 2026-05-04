@@ -32,7 +32,7 @@ type TabKey = typeof tabs[number]["key"];
 
 const statusBadge: Record<string, { label: string; cls: string }> = {
   pending: { label: "Pending Confirmation", cls: "bg-amber-100 text-amber-700" },
-  paid: { label: "Paid", cls: "bg-green-100 text-green-700" },
+  paid: { label: "Pending Confirmation", cls: "bg-amber-100 text-amber-700" },
   confirmed: { label: "Pending Delivery", cls: "bg-blue-100 text-blue-700" },
   delivered: { label: "Delivered", cls: "bg-purple-100 text-purple-700" },
   received: { label: "Received", cls: "bg-emerald-100 text-emerald-700" },
@@ -645,9 +645,11 @@ export default function ProfilePurchasesPage() {
                                     {Number(o.shippingFee ?? o.shipping ?? 0) === 0 ? "Free" : `$${Number(o.shippingFee ?? o.shipping ?? 0).toFixed(2)}`}
                                   </b></span>
                                 </div>
-                                {o.payment && <p className="text-xs">Payment: {o.payment === "cod" ? "Cash on Delivery" : o.payment === "bank" ? "Bank Transfer" : o.payment}</p>}
-                                {o.paymentInfo?.status === "success" && <div className="bg-green-100 w-fit px-2 py-1 rounded-lg text-xs text-green-600">✅ Payment successful </div>}
-                                {o.paymentInfo?.status === "failed" && <div className="bg-red-100 w-fit px-2 py-1 rounded-lg text-xs text-red-600">❌ Payment failed </div>}
+                                <div className="flex items-center gap-6">
+                                  {o.payment && <p className="text-xs">Payment: {o.payment === "cod" ? "Cash on Delivery" : o.payment === "bank" ? "Bank Transfer" : o.payment}</p>}
+                                  {o.paymentInfo?.status === "success" && <div className="bg-green-100 w-fit px-2 py-1 rounded-lg text-xs text-green-600">✅ Payment Successful </div>}
+                                  {o.paymentInfo?.status === "failed" && <div className="bg-red-100 w-fit px-2 py-1 rounded-lg text-xs text-red-600">❌ Payment failed </div>}
+                                </div>
                               </div>
                               <div className="text-right">
                                 {o.discountAmount > 0 && <p className="text-xs text-red-600">Discount: -${o.discountAmount}</p>}
@@ -672,12 +674,6 @@ export default function ProfilePurchasesPage() {
 
                           {o.status === "paid" && (
                             <div className="flex items-center justify-end gap-3 border-t border-black/5 px-5 py-3">
-                              <div className="flex-1 flex items-center gap-2">
-                                <span className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 border border-green-200">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                                  Waiting for confirmation
-                                </span>
-                              </div>
                               <button
                                 disabled={isActioning}
                                 onClick={() => setRefundModal(id)}

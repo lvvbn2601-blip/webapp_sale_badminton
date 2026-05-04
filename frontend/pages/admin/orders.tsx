@@ -956,13 +956,14 @@ export default function AdminOrdersPage() {
             <div className="flex w-full overflow-x-auto pb-2 sm:w-auto sm:pb-0 hide-scrollbar gap-2">
               {[
                 { id: "all", label: "All Orders" },
-                { id: "pending", label: "Pending" },
-                { id: "paid", label: "Paid" },
-                { id: "confirmed", label: "Delivery" },
-                { id: "delivered", label: "Delivered" },
-                { id: "received", label: "Received" },
-                { id: "cancelled", label: "Cancelled" },
-               { id: "refund_requested", label: "⚠️ Refund Requests" },
+                { id: "pending", label: "📝Pending" },
+                { id: "paid", label: "💰Paid" },
+                { id: "confirmed", label: "🚚Delivery" },
+                { id: "delivered", label: "📦Delivered" },
+                { id: "received", label: "✅Received" },
+                { id: "cancelled", label: "❌Cancelled" },
+                { id: "refund_requested", label: "⚠️ Refund Requests" },
+                { id: "returned", label: "↩️ Refunded" },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -1039,11 +1040,11 @@ export default function AdminOrdersPage() {
                             ${o.status === "pending" ? (o.paymentInfo?.status === "pending" ? "bg-orange-50 text-orange-600 border border-orange-200" : "bg-yellow-50 text-yellow-600 border border-yellow-200") :
                               o.status === "paid" ? "bg-green-50 text-green-600 border border-green-200" :
                                 o.status === "refund_requested" ? "bg-orange-50 text-orange-600 border border-orange-200" :
-                                o.status === "confirmed" ? "bg-blue-50 text-blue-600 border border-blue-200" :
-                                  o.status === "shipped" ? "bg-indigo-50 text-indigo-600 border border-indigo-200" :
-                                    o.status === "delivered" ? "bg-purple-50 text-purple-600 border border-purple-200" :
-                                      o.status === "received" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" :
-                                        "bg-red-50 text-red-600 border border-red-200"
+                                  o.status === "confirmed" ? "bg-blue-50 text-blue-600 border border-blue-200" :
+                                    o.status === "shipped" ? "bg-indigo-50 text-indigo-600 border border-indigo-200" :
+                                      o.status === "delivered" ? "bg-purple-50 text-purple-600 border border-purple-200" :
+                                        o.status === "received" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" :
+                                          "bg-red-50 text-red-600 border border-red-200"
                             }`}
                           >
                             <span className={`w-1.5 h-1.5 rounded-full mr-2 
@@ -1055,10 +1056,11 @@ export default function AdminOrdersPage() {
                             {o.status === "pending" ? (o.paymentInfo?.status === "pending" ? "⏳ Waiting Payment" : "📝 Pending") :
                               o.status === "paid" ? "💰 Paid" :
                                 o.status === "refund_requested" ? "⚠️ Refund" :
-                                o.status === "confirmed" ? (o.needsStringing && o.stringingStatus !== 'completed' ? '🧵 Stringing' : '🚚 Delivery') :
-                                  o.status === "received" ? "✅ Received" : o.status === "shipped" ? "Shipped" :
-                                    o.status === "delivered" ? "📦 Delivered" : 
-                                      o.status === "returned" ? "↩️ Returned" : "❌ Cancelled"}
+                                  o.status === "confirmed" ? (o.needsStringing && o.stringingStatus !== 'completed' ? '🧵 Stringing' : '🚚 Delivery') :
+                                    o.status === "received" ? "✅ Received" : o.status === "shipped" ? "Shipped" :
+                                      o.status === "delivered" ? "📦 Delivered" :
+                                        o.status === "returned" ? "↩️ Returned" : "❌ Cancelled"
+                            }
                           </span>
                         </td>
                       </tr>
@@ -1230,6 +1232,7 @@ export default function AdminOrdersPage() {
                             <button onClick={() => openCancelModal(selectedOrder._id)} className="px-5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 py-3 rounded-2xl text-sm font-bold transition-all active:scale-95">Cancel</button>
                           </div>
                         )}
+
                         {(!['pending', 'paid', 'confirmed', 'delivered'].includes(selectedOrder.status)) && (
                           <div className="flex-1 flex gap-3">
                             <select

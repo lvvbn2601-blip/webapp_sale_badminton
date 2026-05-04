@@ -25,7 +25,7 @@ export const env = {
     accessKey: process.env.MOMO_ACCESS_KEY || "",
     secretKey: process.env.MOMO_SECRET_KEY || "",
     paymentUrl: process.env.MOMO_PAYMENT_URL || "https://test-payment.momo.vn/v2/gateway/api/create",
-    returnUrl: process.env.MOMO_RETURN_URL || "http://localhost:3000/checkout?payment_status=momo",
+    returnUrl: process.env.MOMO_RETURN_URL || "http://localhost:4000/api/payment/momo-return",
     ipnUrl: process.env.MOMO_IPN_URL || "http://localhost:4000/api/payment/momo-ipn",
   },
 };

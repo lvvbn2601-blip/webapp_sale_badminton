@@ -36,10 +36,10 @@ export const createOrder = async (
       throw new ApiError(400, `Minimum order value of $${coupon.minOrderValue} required`);
     }
     if (coupon.limitPerCustomer === 1) {
-      const existing = await Order.findOne({ 
-        user: userId, 
-        discountCode: new RegExp(`^${coupon.code}$`, "i"), 
-        status: { $ne: "cancelled" } 
+      const existing = await Order.findOne({
+        user: userId,
+        discountCode: new RegExp(`^${coupon.code}$`, "i"),
+        status: { $ne: "cancelled" }
       });
       if (existing) throw new ApiError(400, "You have already used this coupon");
     }
@@ -128,13 +128,13 @@ export const createOrder = async (
 export const listOrders = (userId?: string) =>
   userId
     ? Order.find({ user: userId })
-        .populate({ path: "items", populate: { path: "product" } })
-        .populate("user", "name email")
-        .sort({ createdAt: -1 })
+      .populate({ path: "items", populate: { path: "product" } })
+      .populate("user", "name email")
+      .sort({ createdAt: -1 })
     : Order.find()
-        .populate({ path: "items", populate: { path: "product" } })
-        .populate("user", "name email")
-        .sort({ createdAt: -1 });
+      .populate({ path: "items", populate: { path: "product" } })
+      .populate("user", "name email")
+      .sort({ createdAt: -1 });
 
 export const getOrder = (id: string) =>
   Order.findById(id)
@@ -162,11 +162,11 @@ export const updateStatus = async (id: string, status: string, adminId?: string,
   if (status === "confirmed" && order.needsStringing) {
     const { StringingTask } = await import("../models/StringingTask");
     const { createTask } = await import("./stringerService");
-    
+
     const existingTasks = await StringingTask.countDocuments({ order: order._id });
     if (existingTasks === 0) {
       const orderItems = await OrderItem.find({ order: order._id, needsStringing: true }).populate("product");
-      
+
       for (const item of orderItems) {
         // Create a task for each quantity of the item
         for (let i = 0; i < item.quantity; i++) {
@@ -387,7 +387,7 @@ export const confirmRefund = async (orderId: string, adminId: string) => {
   // Allow refund for orders that are refund_requested, or have returnReason + delivered/received status
   const isRefundRequest = order.status === "refund_requested";
   const isReturnRequest = order.returnReason && (order.status === "delivered" || order.status === "received" || order.refundStatus === "requested");
-  
+
   if (!isRefundRequest && !isReturnRequest) {
     throw new ApiError(400, "This order does not have a pending refund/return request");
   }

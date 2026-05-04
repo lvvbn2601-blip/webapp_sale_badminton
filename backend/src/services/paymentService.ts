@@ -148,29 +148,54 @@ export const verifyVnPayReturn = async (queryParams: Record<string, any>) => {
 
 // ── MoMo ──────────────────────────────────────────────────
 
+/**
+ * MoMo AIO v2 – Create Payment
+ * Docs: https://developers.momo.vn/v2/#/docs/aiov2/
+ *
+ * Sandbox credentials (from MoMo official docs):
+ *   partnerCode: MOMO
+ *   accessKey:   F8BBA842ECF85
+ *   secretKey:   K951B6PE1waDMi640xX08PD3vg6EkVlz
+ *   endpoint:    https://test-payment.momo.vn/v2/gateway/api/create
+ *
+ * Signature format (keys sorted alphabetically):
+ *   accessKey=...&amount=...&extraData=...&ipnUrl=...&orderId=...
+ *   &orderInfo=...&partnerCode=...&redirectUrl=...&requestId=...&requestType=...
+ */
 export const createMoMoPayment = async (orderId: string, amount: number) => {
   const order = await Order.findById(orderId);
   if (!order) throw new ApiError(404, "Order not found");
 
   const { partnerCode, accessKey, secretKey, paymentUrl, returnUrl, ipnUrl } = env.momo;
+
+  // MoMo requires unique orderId per request; append timestamp to avoid "duplicate orderId" error (41)
+  const momoOrderId = `${orderId}-${Date.now()}`;
   const requestId = `${partnerCode}-${Date.now()}`;
-  const orderInfo = `Payment for order ${orderId}`;
+  const orderInfo = `Thanh toan don hang ${orderId}`;
   const requestType = "captureWallet";
   const extraData = "";
 
-  // Create signature
+  // MoMo requires integer amount (VND, min 1000)
+  const momoAmount = Math.round(amount);
+  if (momoAmount < 1000) {
+    throw new ApiError(400, "MoMo requires minimum payment of 1,000 VND");
+  }
+
+  // Create signature – keys MUST be in alphabetical order (a→z)
   const rawSignature = [
     `accessKey=${accessKey}`,
-    `amount=${amount}`,
+    `amount=${momoAmount}`,
     `extraData=${extraData}`,
     `ipnUrl=${ipnUrl}`,
-    `orderId=${orderId}`,
+    `orderId=${momoOrderId}`,
     `orderInfo=${orderInfo}`,
     `partnerCode=${partnerCode}`,
     `redirectUrl=${returnUrl}`,
     `requestId=${requestId}`,
     `requestType=${requestType}`,
   ].join("&");
+
+  console.log("[MOMO CREATE] rawSignature:", rawSignature);
 
   const signature = createHmac("sha256", secretKey)
     .update(rawSignature)
@@ -180,8 +205,8 @@ export const createMoMoPayment = async (orderId: string, amount: number) => {
     partnerCode,
     accessKey,
     requestId,
-    amount,
-    orderId,
+    amount: momoAmount,
+    orderId: momoOrderId,
     orderInfo,
     redirectUrl: returnUrl,
     ipnUrl,
@@ -191,12 +216,16 @@ export const createMoMoPayment = async (orderId: string, amount: number) => {
     lang: "vi",
   };
 
-  // Create a pending payment record
+  console.log("[MOMO CREATE] Endpoint:", paymentUrl);
+  console.log("[MOMO CREATE] Body:", JSON.stringify(requestBody, null, 2));
+
+  // Create a pending payment record (store both real orderId and momo orderId)
   await Payment.create({
     order: orderId,
-    amount,
+    amount: momoAmount,
     status: "pending",
     provider: "momo",
+    transactionId: momoOrderId, // store momo orderId for lookup during IPN
   });
 
   try {
@@ -207,6 +236,8 @@ export const createMoMoPayment = async (orderId: string, amount: number) => {
     });
     const data = await response.json();
 
+    console.log("[MOMO CREATE] Response:", JSON.stringify(data, null, 2));
+
     if (data.resultCode === 0) {
       return {
         payUrl: data.payUrl,
@@ -216,18 +247,25 @@ export const createMoMoPayment = async (orderId: string, amount: number) => {
       };
     }
 
-    // If MoMo API returns error, return a simulated URL for demo (sandbox may be unavailable)
-    console.warn("MoMo API returned non-zero result:", data.resultCode, data.message);
+    // MoMo returned an error
+    console.warn("[MOMO CREATE] Error:", data.resultCode, data.message);
+
+    // Common error codes for debugging:
+    // 11 = Access denied (wrong accessKey)
+    // 12 = Invalid signature (wrong secretKey or signature format)
+    // 40 = Duplicate requestId
+    // 41 = Duplicate orderId
     return {
       payUrl: null,
       qrCodeUrl: null,
       deeplink: null,
       deeplinkMiniApp: null,
       demoMode: true,
+      errorCode: data.resultCode,
+      errorMessage: data.message,
     };
   } catch (error) {
-    console.error("MoMo API call failed:", error);
-    // Return demo mode response so the UI can still show the flow
+    console.error("[MOMO CREATE] API call failed:", error);
     return {
       payUrl: null,
       qrCodeUrl: null,
@@ -238,10 +276,18 @@ export const createMoMoPayment = async (orderId: string, amount: number) => {
   }
 };
 
+/**
+ * MoMo IPN (Instant Payment Notification) – server-to-server callback
+ *
+ * IPN signature format (keys alphabetically):
+ *   accessKey=...&amount=...&extraData=...&message=...&orderId=...
+ *   &orderInfo=...&orderType=...&partnerCode=...&payType=...
+ *   &requestId=...&responseTime=...&resultCode=...&transId=...
+ */
 export const verifyMoMoIPN = async (body: Record<string, any>) => {
   const {
     partnerCode,
-    orderId,
+    orderId: momoOrderId,
     requestId,
     amount,
     orderInfo,
@@ -257,13 +303,108 @@ export const verifyMoMoIPN = async (body: Record<string, any>) => {
 
   const { accessKey, secretKey } = env.momo;
 
-  // Verify signature
+  // Verify signature – keys in alphabetical order
   const rawSignature = [
     `accessKey=${accessKey}`,
     `amount=${amount}`,
     `extraData=${extraData}`,
     `message=${message}`,
-    `orderId=${orderId}`,
+    `orderId=${momoOrderId}`,
+    `orderInfo=${orderInfo}`,
+    `orderType=${orderType}`,
+    `partnerCode=${partnerCode}`,
+    `payType=${payType}`,
+    `requestId=${requestId}`,
+    `responseTime=${responseTime}`,
+    `resultCode=${resultCode}`,
+    `transId=${transId}`,
+  ].join("&");
+
+  console.log("[MOMO IPN] rawSignature:", rawSignature);
+  console.log("[MOMO IPN] received body:", JSON.stringify(body, null, 2));
+
+  const expectedSignature = createHmac("sha256", secretKey)
+    .update(rawSignature)
+    .digest("hex");
+
+  const isValid = expectedSignature === receivedSignature;
+  console.log("[MOMO IPN] Signature valid:", isValid, "resultCode:", resultCode);
+
+  const status = resultCode === 0 && isValid ? "success" : "failed";
+
+  // Find the payment record by momo orderId (stored in transactionId during creation)
+  // The momoOrderId format is: {realOrderId}-{timestamp}
+  const realOrderId = momoOrderId.replace(/-\d+$/, "");
+
+  // Update payment record
+  await Payment.findOneAndUpdate(
+    { order: realOrderId, provider: "momo", transactionId: momoOrderId },
+    {
+      status,
+      transactionId: String(transId), // now store the real MoMo transaction ID
+      raw: body,
+    },
+    { sort: { createdAt: -1 } }
+  );
+
+  // Update order status based on payment result
+  if (status === "success") {
+    await Order.findByIdAndUpdate(realOrderId, {
+      status: "paid",
+      $push: {
+        statusHistory: {
+          status: "paid",
+          changedAt: new Date(),
+          note: `MoMo payment confirmed. Transaction: ${transId}`,
+        },
+      },
+    });
+  } else {
+    await Order.findByIdAndUpdate(realOrderId, {
+      status: "cancelled",
+      $push: {
+        statusHistory: {
+          status: "cancelled",
+          changedAt: new Date(),
+          note: `MoMo payment failed (resultCode: ${resultCode}).`,
+        },
+      },
+    });
+  }
+
+  return { status, orderId: realOrderId, isValid };
+};
+
+/**
+ * MoMo Return – verify redirect query params from MoMo
+ * Called when MoMo redirects user back to redirectUrl
+ */
+export const verifyMoMoReturn = async (queryParams: Record<string, any>) => {
+  const {
+    partnerCode,
+    orderId: momoOrderId,
+    requestId,
+    amount,
+    orderInfo,
+    orderType,
+    transId,
+    resultCode,
+    message,
+    payType,
+    responseTime,
+    extraData,
+    signature: receivedSignature,
+  } = queryParams;
+
+  const { accessKey, secretKey } = env.momo;
+
+  // Verify signature – same format as IPN
+  const rawSignature = [
+    `accessKey=${accessKey}`,
+    `amount=${amount}`,
+    `extraData=${extraData}`,
+    `message=${message}`,
+    `orderId=${momoOrderId}`,
     `orderInfo=${orderInfo}`,
     `orderType=${orderType}`,
     `partnerCode=${partnerCode}`,
@@ -279,45 +420,14 @@ export const verifyMoMoIPN = async (body: Record<string, any>) => {
     .digest("hex");
 
   const isValid = expectedSignature === receivedSignature;
-  const status = resultCode === 0 && isValid ? "success" : "failed";
+  const status = String(resultCode) === "0" && isValid ? "success" : "failed";
 
-  // Update payment record
-  await Payment.findOneAndUpdate(
-    { order: orderId, provider: "momo" },
-    {
-      status,
-      transactionId: String(transId),
-      raw: body,
-    },
-    { sort: { createdAt: -1 } }
-  );
+  // Extract real orderId from momo orderId
+  const realOrderId = String(momoOrderId).replace(/-\d+$/, "");
 
-  // Update order status based on payment result
-  if (status === "success") {
-    await Order.findByIdAndUpdate(orderId, {
-      status: "paid",
-      $push: {
-        statusHistory: {
-          status: "paid",
-          changedAt: new Date(),
-          note: `MoMo payment confirmed. Transaction: ${transId}`,
-        },
-      },
-    });
-  } else {
-    await Order.findByIdAndUpdate(orderId, {
-      status: "cancelled",
-      $push: {
-        statusHistory: {
-          status: "cancelled",
-          changedAt: new Date(),
-          note: `MoMo payment failed (resultCode: ${resultCode}).`,
-        },
-      },
-    });
-  }
+  console.log("[MOMO RETURN] orderId:", realOrderId, "status:", status, "valid:", isValid);
 
-  return { status, orderId, isValid };
+  return { status, orderId: realOrderId, isValid };
 };
 
 // ── Common ────────────────────────────────────────────────

@@ -49,9 +49,9 @@ export const momoIPN = asyncHandler(async (req: Request, res: Response) => {
 
 /** MoMo return callback (redirect from MoMo) */
 export const momoReturn = asyncHandler(async (req: Request, res: Response) => {
-  const { orderId, resultCode } = req.query;
-  const status = resultCode === "0" ? "success" : "failed";
-  const redirectUrl = `${env.clientUrl}/checkout?payment_status=momo&result=${status}&orderId=${orderId}`;
+  // Verify signature from MoMo redirect query params
+  const result = await PaymentService.verifyMoMoReturn(req.query as Record<string, any>);
+  const redirectUrl = `${env.clientUrl}/checkout?payment_status=momo&result=${result.status}&orderId=${result.orderId}`;
   res.redirect(redirectUrl);
 });
 

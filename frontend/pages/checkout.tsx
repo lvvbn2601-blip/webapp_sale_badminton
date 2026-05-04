@@ -367,9 +367,10 @@ export default function CheckoutPage() {
         const result = await createMoMoPayment(orderId, finalTotalVND, token);
         if (result.payUrl) {
           setPaymentGatewayUrl(result.payUrl);
-          setMomoQrUrl(result.qrCodeUrl);
           setMomoDeeplink(result.deeplink);
-          setPaymentProcessing(false);
+          // Note: MoMo qrCodeUrl is a deeplink (momo://...), not an image URL.
+          // For web checkout, redirect directly to MoMo's payUrl (web payment page).
+          window.location.href = result.payUrl;
         } else {
           // Demo mode
           setIsDemoMode(true);
