@@ -481,3 +481,81 @@ export const updateStringingStatus = async (orderId: string, stringingStatus: st
   if (!order) throw new ApiError(404, "Order not found");
   return order;
 };
+
+/** Scans pending orders to send reminders or cancel */
+export const scanPendingOrders = async () => {
+  const now = new Date();
+  
+  // 15 minutes ago
+  const reminderThreshold = new Date(now.getTime() - 15 * 60 * 1000);
+  // 30 minutes ago
+  const cancelThreshold = new Date(now.getTime() - 30 * 60 * 1000);
+
+  // We target orders that are pending, and payment method is NOT 'COD' or 'cod'
+  const pendingOrders = await Order.find({
+    status: "pending",
+    payment: { $nin: ["COD", "cod", "Cash On Delivery", "cash"] },
+  });
+
+  for (const order of pendingOrders) {
+    const createdAt = order.createdAt;
+    if (!createdAt) continue;
+
+    // Condition 1: Older than 30 minutes -> Cancel
+    if (createdAt <= cancelThreshold) {
+      order.status = "cancelled";
+      order.statusHistory.push({
+        status: "cancelled",
+        changedAt: now,
+        note: "Automatically cancelled due to unpaid status after 30 minutes.",
+      });
+      await order.save();
+
+      // Restore inventory
+      const orderItems = await OrderItem.find({ order: order._id });
+      await Promise.all(
+        orderItems.map(async (item: any) => {
+          const { Product } = await import("../models/Product");
+          await Product.findByIdAndUpdate(item.product, {
+            $inc: { stock: item.quantity },
+          });
+        })
+      );
+
+      const shortId = String(order._id).slice(-8).toUpperCase();
+      
+      // Notify User
+      await NotificationService.createNotification({
+        userId: String(order.user),
+        type: "order_cancelled",
+        title: "Order Automatically Cancelled",
+        message: `Your order #${shortId} has been cancelled because payment was not completed within 30 minutes.`,
+        orderId: String(order._id),
+      });
+
+      // Notify Admins
+      await NotificationService.notifyAdmins({
+        type: "order_cancelled",
+        title: "Order Auto-Cancelled (Unpaid)",
+        message: `Order #${shortId} was automatically cancelled due to timeout (30 mins without payment).`,
+        orderId: String(order._id),
+      });
+
+    } 
+    // Condition 2: Older than 15 minutes but <= 30 minutes -> Send reminder
+    else if (createdAt <= reminderThreshold && !order.paymentReminderSent) {
+      order.paymentReminderSent = true;
+      await order.save();
+
+      const shortId = String(order._id).slice(-8).toUpperCase();
+      // Send reminder notification
+      await NotificationService.createNotification({
+        userId: String(order.user),
+        type: "order_status",
+        title: "Complete Your Payment",
+        message: "The product in your cart is almost sold out, please pay now to reserve your item!",
+        orderId: String(order._id),
+      });
+    }
+  }
+};

@@ -31,6 +31,9 @@ export interface IOrder extends Document {
     changedBy?: mongoose.Types.ObjectId;
     note?: string;
   }>;
+  paymentReminderSent?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const OrderSchema = new Schema<IOrder>(
@@ -76,6 +79,7 @@ const OrderSchema = new Schema<IOrder>(
         note: { type: String },
       },
     ],
+    paymentReminderSent: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
