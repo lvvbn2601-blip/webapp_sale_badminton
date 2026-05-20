@@ -269,46 +269,93 @@ export default function CheckoutPage() {
   const shippingFeeVND = selectedShipping?.price || 0;
   const codFeeVND = paymentMethod === "COD" ? 5000 : 0;
 
-  const applicableCoupons = useMemo(() => coupons.filter(c =>
-    (!c.minOrderValue || (baseSubtotalVND / USD_TO_VND) >= c.minOrderValue) &&
-    !c.usedByCurrentUser &&
-    !(c.usageLimit && c.usageCount >= c.usageLimit)
-  ), [coupons, baseSubtotalVND, USD_TO_VND]);
-  const ineligibleCoupons = useMemo(() => coupons.filter(c =>
-    (c.minOrderValue && (baseSubtotalVND / USD_TO_VND) < c.minOrderValue) ||
-    c.usedByCurrentUser ||
-    (c.usageLimit && c.usageCount >= c.usageLimit)
-  ), [coupons, baseSubtotalVND, USD_TO_VND]);
+  const calculateEligibleSubtotal = useCallback((coupon: any) => {
+    let eligibleSubtotal = 0;
+    
+    items.forEach((item: any) => {
+      const product = item.product;
+      let isEligible = true;
+
+      // Check exclude shuttlecocks
+      if (coupon.excludeShuttlecocks) {
+        const cat = product.category;
+        if (cat && (cat.slug?.includes("shuttle") || cat.slug?.includes("qua-cau"))) {
+          isEligible = false;
+        }
+      }
+
+      // Check applyTo
+      if (isEligible) {
+        if (coupon.applyTo === "category" && coupon.applicableCategories?.length > 0) {
+          const catId = product.category?._id || product.category;
+          const applicableCatIds = coupon.applicableCategories.map((c: any) => c._id || c);
+          if (!applicableCatIds.includes(catId)) {
+            isEligible = false;
+          }
+        } else if (coupon.applyTo === "product" && coupon.applicableProducts?.length > 0) {
+          const prodId = product._id || product.id;
+          const applicableProdIds = coupon.applicableProducts.map((p: any) => p._id || p);
+          if (!applicableProdIds.includes(prodId)) {
+            isEligible = false;
+          }
+        }
+      }
+
+      if (isEligible) {
+        eligibleSubtotal += (product.price || product.basePrice || 0) * USD_TO_VND * item.quantity;
+      }
+    });
+
+    return eligibleSubtotal;
+  }, [items, USD_TO_VND]);
+
+  const applicableCoupons = useMemo(() => coupons.filter(c => {
+    const eligibleSubtotal = calculateEligibleSubtotal(c);
+    if (eligibleSubtotal === 0) return false;
+    return (!c.minOrderValue || (eligibleSubtotal / USD_TO_VND) >= c.minOrderValue) &&
+      !c.usedByCurrentUser &&
+      !(c.usageLimit && c.usageCount >= c.usageLimit);
+  }), [coupons, calculateEligibleSubtotal, USD_TO_VND]);
+
+  const ineligibleCoupons = useMemo(() => coupons.filter(c => {
+    const eligibleSubtotal = calculateEligibleSubtotal(c);
+    return (eligibleSubtotal === 0) ||
+      (c.minOrderValue && (eligibleSubtotal / USD_TO_VND) < c.minOrderValue) ||
+      c.usedByCurrentUser ||
+      (c.usageLimit && c.usageCount >= c.usageLimit);
+  }), [coupons, calculateEligibleSubtotal, USD_TO_VND]);
 
   useEffect(() => {
     if (showVouchers && !selectedCoupon && applicableCoupons.length > 0) {
       let best: any = null;
       let maxDiscount = 0;
       applicableCoupons.forEach(c => {
+        const eligibleSubtotal = calculateEligibleSubtotal(c);
         let val = 0;
         if (c.discountType === "amount") val = c.amount;
         else if (c.discountType === "percent") {
-          val = ((baseSubtotalVND / USD_TO_VND) * c.amount) / 100;
+          val = ((eligibleSubtotal / USD_TO_VND) * c.amount) / 100;
           if (c.maxDiscount && val > c.maxDiscount) val = c.maxDiscount;
         }
         if (val > maxDiscount) { maxDiscount = val; best = c; }
       });
       setSelectedCoupon(best);
     }
-  }, [showVouchers, applicableCoupons, selectedCoupon, baseSubtotalVND, USD_TO_VND]);
+  }, [showVouchers, applicableCoupons, selectedCoupon, calculateEligibleSubtotal, USD_TO_VND]);
 
   const discountAmountVND = useMemo(() => {
     if (!selectedCoupon) return 0;
+    const eligibleSubtotal = calculateEligibleSubtotal(selectedCoupon);
     if (selectedCoupon.discountType === "amount") return selectedCoupon.amount * USD_TO_VND;
     if (selectedCoupon.discountType === "percent") {
-      let val = baseSubtotalVND * (selectedCoupon.amount / 100);
+      let val = eligibleSubtotal * (selectedCoupon.amount / 100);
       if (selectedCoupon.maxDiscount && val > (selectedCoupon.maxDiscount * USD_TO_VND)) {
         val = selectedCoupon.maxDiscount * USD_TO_VND;
       }
       return val;
     }
     return 0;
-  }, [selectedCoupon, baseSubtotalVND, USD_TO_VND]);
+  }, [selectedCoupon, calculateEligibleSubtotal, USD_TO_VND]);
 
   const finalTotalVND = baseSubtotalVND - discountAmountVND + shippingFeeVND + codFeeVND;
 
@@ -320,7 +367,10 @@ export default function CheckoutPage() {
   const handleApplyCoupon = () => {
     const found = coupons.find(c => c.code.toUpperCase() === manualCode.toUpperCase());
     if (found) {
-      if (found.minOrderValue && (baseSubtotalVND / USD_TO_VND) < found.minOrderValue) {
+      const eligibleSubtotal = calculateEligibleSubtotal(found);
+      if (eligibleSubtotal === 0) {
+        showToast("No eligible items in cart for this coupon.", "error");
+      } else if (found.minOrderValue && (eligibleSubtotal / USD_TO_VND) < found.minOrderValue) {
         showToast("Order value does not meet the minimum requirement.", "error");
       } else {
         setSelectedCoupon(found);

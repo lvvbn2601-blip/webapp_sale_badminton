@@ -2,7 +2,7 @@ import { confirmAction } from "../../components/ConfirmModal";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import Head from "next/head";
 import { AdminShell } from "../../components/admin/AdminShell";
-import { fetchAdminCoupons, createAdminCoupon, updateAdminCoupon, updateAdminCouponStatus, deleteAdminCoupon, fetchNotifications } from "../../lib/api";
+import { fetchAdminCoupons, createAdminCoupon, updateAdminCoupon, updateAdminCouponStatus, deleteAdminCoupon, fetchNotifications, fetchCategories, fetchProducts } from "../../lib/api";
 import { useRouter } from "next/router";
 import {
   Ticket,
@@ -45,6 +45,8 @@ type Voucher = {
   startDate: string;
   expiresAt: string;
   status: VoucherStatus;
+  applicableCategories?: any[];
+  applicableProducts?: any[];
 };
 
 // Mock Data as Fallback
@@ -109,6 +111,11 @@ export default function AdminVouchers() {
   const [minOrderValue, setMinOrderValue] = useState<number | "">("");
 
   const [applyTo, setApplyTo] = useState<"store" | "category" | "product">("store");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [categoriesList, setCategoriesList] = useState<any[]>([]);
+  const [productsList, setProductsList] = useState<any[]>([]);
+  const [productSearch, setProductSearch] = useState("");
   const [excludeFlashSale, setExcludeFlashSale] = useState(false);
   const [excludeShuttlecocks, setExcludeShuttlecocks] = useState(true);
 
@@ -140,16 +147,27 @@ export default function AdminVouchers() {
     setAuthChecked(true);
   }, []);
 
-  // ── Load Vouchers ──
+  // ── Load Vouchers & Dependencies ──
   useEffect(() => {
     if (!authChecked || !token) return;
     loadVouchers();
+
+    // Load categories and products for the form
+    fetchCategories().then(data => setCategoriesList(data)).catch(() => {});
+    fetchProducts({ limit: 1000 }).then(data => setProductsList(data.data)).catch(() => {});
 
     // Auto-update every 10 seconds in the background
     const interval = setInterval(() => {
       fetchAdminCoupons(token!).then((data) => {
         if (data && !usingMockData) {
-          setVouchers(data);
+          const now = new Date();
+          const updated = data.map((v: any) => {
+            if ((v.status === "running" || v.status === "waiting") && new Date(v.expiresAt) < now) {
+              return { ...v, status: "completed" };
+            }
+            return v;
+          });
+          setVouchers(updated);
         }
       }).catch(() => { });
     }, 10000);
@@ -222,6 +240,8 @@ export default function AdminVouchers() {
       startDate: new Date(startDate),
       expiresAt: new Date(endDate),
       applyTo,
+      applicableCategories: applyTo === "category" ? selectedCategories : [],
+      applicableProducts: applyTo === "product" ? selectedProducts : [],
       excludeFlashSale,
       excludeShuttlecocks,
       customerTarget,
@@ -268,6 +288,8 @@ export default function AdminVouchers() {
       setCode(""); setProgram(""); setAmount(""); setMaxDiscount(""); setUsageLimit("");
       setStartDate(""); setEndDate("");
       setMinOrderValue(""); setLimitPerCustomer(1);
+      setSelectedCategories([]); setSelectedProducts([]);
+      setApplyTo("store");
     } catch (e: any) {
       showToast(e?.response?.data?.error || `Failed to ${editingId ? "update" : "create"} voucher`, "error");
     } finally {
@@ -285,6 +307,9 @@ export default function AdminVouchers() {
     setMinOrderValue((v as any).minOrderValue || "");
     setUsageLimit(v.usageLimit || "");
     setLimitPerCustomer((v as any).limitPerCustomer || 1);
+    setApplyTo((v as any).applyTo || "store");
+    setSelectedCategories((v.applicableCategories || []).map((c: any) => c._id || c));
+    setSelectedProducts((v.applicableProducts || []).map((p: any) => p._id || p));
 
     // Convert to local datetime string format for input
     const start = new Date(v.startDate);
@@ -864,19 +889,73 @@ export default function AdminVouchers() {
                 </div>
 
                 <div className="grid gap-6 sm:grid-cols-2">
-                  <div className="rounded-xl border border-black/5 bg-black/5 p-5">
-                    <h3 className="mb-4 text-sm font-bold text-secondary">Applies To</h3>
-                    <div className="space-y-3">
-                      <label className="flex items-center gap-2 text-sm cursor-pointer">
-                        <input type="radio" name="applyTo" value="store" checked={applyTo === "store"} onChange={() => setApplyTo("store")} className="accent-primary" /> Entire Store
-                      </label>
-                      <label className="flex items-center gap-2 text-sm cursor-pointer">
-                        <input type="radio" name="applyTo" value="category" checked={applyTo === "category"} onChange={() => setApplyTo("category")} className="accent-primary" /> Specific Category
-                      </label>
-                      <label className="flex items-center gap-2 text-sm cursor-pointer">
-                        <input type="radio" name="applyTo" value="product" checked={applyTo === "product"} onChange={() => setApplyTo("product")} className="accent-primary" /> Specific Product
-                      </label>
+                  <div className="rounded-xl border border-black/5 bg-black/5 p-5 flex flex-col gap-4">
+                    <div>
+                      <h3 className="mb-4 text-sm font-bold text-secondary">Applies To</h3>
+                      <div className="space-y-3">
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input type="radio" name="applyTo" value="store" checked={applyTo === "store"} onChange={() => setApplyTo("store")} className="accent-primary" /> Entire Store
+                        </label>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input type="radio" name="applyTo" value="category" checked={applyTo === "category"} onChange={() => setApplyTo("category")} className="accent-primary" /> Specific Category
+                        </label>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input type="radio" name="applyTo" value="product" checked={applyTo === "product"} onChange={() => setApplyTo("product")} className="accent-primary" /> Specific Product
+                        </label>
+                      </div>
                     </div>
+                    
+                    {applyTo === "category" && (
+                      <div className="mt-2 flex flex-col gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                        <h4 className="text-xs font-semibold text-secondary/70">Select Categories:</h4>
+                        {categoriesList.map(cat => (
+                          <label key={cat._id} className="flex items-center gap-2 text-sm cursor-pointer bg-white p-2 rounded-lg border border-black/5 hover:border-primary/50 transition">
+                            <input 
+                              type="checkbox" 
+                              checked={selectedCategories.includes(cat._id)}
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedCategories([...selectedCategories, cat._id]);
+                                else setSelectedCategories(selectedCategories.filter(id => id !== cat._id));
+                              }}
+                              className="accent-primary" 
+                            />
+                            {cat.name}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {applyTo === "product" && (
+                      <div className="mt-2 flex flex-col gap-2">
+                        <h4 className="text-xs font-semibold text-secondary/70">Select Products:</h4>
+                        <input
+                          type="text"
+                          placeholder="Search products..."
+                          value={productSearch}
+                          onChange={(e) => setProductSearch(e.target.value)}
+                          className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none transition focus:border-primary"
+                        />
+                        <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar mt-1">
+                          {productsList.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase())).map(prod => (
+                            <label key={prod._id} className="flex items-start gap-2 text-sm cursor-pointer bg-white p-2 rounded-lg border border-black/5 hover:border-primary/50 transition">
+                              <input 
+                                type="checkbox" 
+                                checked={selectedProducts.includes(prod._id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) setSelectedProducts([...selectedProducts, prod._id]);
+                                  else setSelectedProducts(selectedProducts.filter(id => id !== prod._id));
+                                }}
+                                className="accent-primary mt-1" 
+                              />
+                              <div className="flex flex-col">
+                                <span className="font-medium line-clamp-1">{prod.name}</span>
+                                <span className="text-xs text-secondary/50">${prod.basePrice}</span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="rounded-xl border border-red-100 bg-red-50 p-5">

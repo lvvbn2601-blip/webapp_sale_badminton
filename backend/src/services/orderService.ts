@@ -32,9 +32,6 @@ export const createOrder = async (
     if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
       throw new ApiError(400, "Coupon usage limit reached");
     }
-    if (coupon.minOrderValue && subtotal < coupon.minOrderValue) {
-      throw new ApiError(400, `Minimum order value of $${coupon.minOrderValue} required`);
-    }
     if (coupon.limitPerCustomer === 1) {
       const existing = await Order.findOne({
         user: userId,
@@ -44,12 +41,9 @@ export const createOrder = async (
       if (existing) throw new ApiError(400, "You have already used this coupon");
     }
 
-    if (coupon.discountType === "percent") {
-      discountAmount = (coupon.amount / 100) * subtotal;
-      if (coupon.maxDiscount && discountAmount > coupon.maxDiscount) discountAmount = coupon.maxDiscount;
-    } else {
-      discountAmount = coupon.amount;
-    }
+    const { calculateDiscountForItems } = await import("./couponService");
+    const res = await calculateDiscountForItems(coupon, items);
+    discountAmount = res.discount;
 
     // Process incrementing usage count atomically
     await Coupon.updateOne(

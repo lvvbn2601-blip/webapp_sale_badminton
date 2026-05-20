@@ -13,6 +13,8 @@ export interface ICoupon extends Document {
   
   channels?: string[];
   applyTo: "store" | "category" | "product";
+  applicableCategories: mongoose.Types.ObjectId[];
+  applicableProducts: mongoose.Types.ObjectId[];
   excludeFlashSale: boolean;
   excludeShuttlecocks: boolean;
   
@@ -38,6 +40,8 @@ const CouponSchema = new Schema<ICoupon>(
     
     channels: [{ type: String }],
     applyTo: { type: String, enum: ["store", "category", "product"], default: "store" },
+    applicableCategories: [{ type: Schema.Types.ObjectId, ref: "Category" }],
+    applicableProducts: [{ type: Schema.Types.ObjectId, ref: "Product" }],
     excludeFlashSale: { type: Boolean, default: false },
     excludeShuttlecocks: { type: Boolean, default: false },
     

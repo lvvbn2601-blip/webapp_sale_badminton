@@ -5,6 +5,7 @@ import "./config/redis";
 import "./services/trackingQueueManager";
 import { segmentationService } from "./services/segmentationService";
 import { scanPendingOrders } from "./services/orderService";
+import { expireOverdueCoupons } from "./services/couponService";
 import cron from "node-cron";
 
 const start = async () => {
@@ -27,6 +28,15 @@ const start = async () => {
       await scanPendingOrders();
     } catch (err) {
       console.error("Pending orders scanning error:", err);
+    }
+  });
+
+  // ── Cron: Auto-expire overdue coupons every minute ──
+  cron.schedule("* * * * *", async () => {
+    try {
+      await expireOverdueCoupons();
+    } catch (err) {
+      console.error("Coupon auto-expiry error:", err);
     }
   });
 
