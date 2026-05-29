@@ -32,16 +32,7 @@ const SHIPPING_METHODS = [
 ];
 
 const PAYMENT_METHODS = [
-  {
-    id: "MoMo",
-    label: "MoMo",
-    icon: "momo",
-    color: "#a50064",
-    bgColor: "#fce4f3",
-    borderColor: "#f0b4d8",
-    description: "Ví điện tử MoMo",
-  },
-  {
+    {
     id: "VNPay",
     label: "VNPay",
     icon: "vnpay",
@@ -51,32 +42,15 @@ const PAYMENT_METHODS = [
     description: "Cổng thanh toán VNPay",
   },
   {
-    id: "ZaloPay",
-    label: "ZaloPay",
-    icon: "zalopay",
-    color: "#008fe5",
-    bgColor: "#e0f5ff",
-    borderColor: "#a0d8f5",
-    description: "Ví ZaloPay",
+    id: "MoMo",
+    label: "MoMo",
+    icon: "momo",
+    color: "#a50064",
+    bgColor: "#fce4f3",
+    borderColor: "#f0b4d8",
+    description: "Ví điện tử MoMo",
   },
-  {
-    id: "International Card",
-    label: "Thẻ quốc tế",
-    icon: "card",
-    color: "#1a1a2e",
-    bgColor: "#f0f0f5",
-    borderColor: "#d0d0e0",
-    description: "Visa, MasterCard, JCB",
-  },
-  {
-    id: "Bank Transfer",
-    label: "Chuyển khoản",
-    icon: "bank",
-    color: "#0d6efd",
-    bgColor: "#e7f1ff",
-    borderColor: "#b6d4fe",
-    description: "Chuyển khoản ngân hàng",
-  },
+
   {
     id: "COD",
     label: "Thanh toán khi nhận hàng",

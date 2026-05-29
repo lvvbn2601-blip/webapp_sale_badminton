@@ -3,7 +3,7 @@ import { Product } from "../models/Product";
 import { ApiError } from "../utils/apiError";
 import mongoose from "mongoose";
 
-const syncProductRating = async (productId: string | mongoose.Types.ObjectId) => {
+export const syncProductRating = async (productId: string | mongoose.Types.ObjectId) => {
   const stats = await Review.aggregate([
     { $match: { product: new mongoose.Types.ObjectId(productId.toString()), status: "approved" } },
     { $group: { _id: null, avgRating: { $avg: "$rating" }, reviewCount: { $sum: 1 } } }

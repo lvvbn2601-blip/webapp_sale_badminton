@@ -171,13 +171,11 @@ const DEMO_STATS = {
 };
 
 /* ══════════════════ STATUS TAB TYPE ══════════════════ */
-type TabKey = "all" | "pending" | "approved" | "rejected";
+type TabKey = "all" | "featured";
 
 const TABS: { key: TabKey; label: string; icon: any; color: string }[] = [
   { key: "all", label: "All Reviews", icon: BarChart3, color: "text-secondary" },
-  { key: "pending", label: "Pending Approval", icon: Clock, color: "text-amber-600" },
-  { key: "approved", label: "Approved", icon: CheckCircle2, color: "text-emerald-600" },
-  { key: "rejected", label: "Rejected", icon: XCircle, color: "text-red-500" },
+  { key: "featured", label: "Featured Reviews", icon: Sparkles, color: "text-amber-500" },
 ];
 
 /* ══════════════════ MAIN COMPONENT ══════════════════ */
@@ -277,11 +275,9 @@ export default function AdminReviewsPage() {
   const computedStats = useMemo(() => {
     if (usingMockData) {
       const total = reviews.length;
-      const pending = reviews.filter(r => r.status === "pending").length;
-      const approved = reviews.filter(r => r.status === "approved").length;
       const avgRating = total > 0 ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / total) * 10) / 10 : 0;
       const noReply = reviews.filter(r => !r.adminReply).length;
-      return { total, pending, approved, rejected: total - pending - approved, avgRating, noReply };
+      return { total, avgRating, noReply };
     }
     return stats;
   }, [reviews, stats, usingMockData]);
@@ -290,7 +286,7 @@ export default function AdminReviewsPage() {
   const filteredReviews = useMemo(() => {
     return reviews.filter((r) => {
       // Tab filter
-      if (activeTab !== "all" && r.status !== activeTab) return false;
+      if (activeTab === "featured" && !r.isFeatured) return false;
       // Star filter
       if (starFilter > 0 && r.rating !== starFilter) return false;
       // Search
@@ -540,21 +536,13 @@ export default function AdminReviewsPage() {
       {authChecked && !loading && (
         <div className="space-y-6">
           {/* ═══════════════ METRIC CARDS ═══════════════ */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <MetricCard
               label="Total Reviews"
               value={computedStats.total}
               icon={<BarChart3 size={20} />}
               color="bg-blue-50 text-blue-600"
               iconBg="bg-blue-100"
-            />
-            <MetricCard
-              label="Pending Approval"
-              value={computedStats.pending}
-              icon={<Clock size={20} />}
-              color="bg-amber-50 text-amber-600"
-              iconBg="bg-amber-100"
-              highlight={computedStats.pending > 0}
             />
             <MetricCard
               label="Average Rating"
@@ -582,7 +570,7 @@ export default function AdminReviewsPage() {
                 const count =
                   tab.key === "all"
                     ? reviews.length
-                    : reviews.filter((r) => r.status === tab.key).length;
+                    : reviews.filter((r) => r.isFeatured).length;
                 const Icon = tab.icon;
                 return (
                   <button
@@ -667,49 +655,6 @@ export default function AdminReviewsPage() {
               </button>
             </div>
 
-            {/* BULK ACTION BAR */}
-            {selectedIds.size > 0 && (
-              <div className="flex items-center gap-3 border-b border-black/5 bg-blue-50 px-5 py-3 animate-in">
-                <span className="text-sm font-bold text-blue-700">
-                  {selectedIds.size} selected
-                </span>
-                <button
-                  onClick={() => handleBulkAction("approved")}
-                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-700 shadow-sm"
-                >
-                  <Check size={14} />
-                  Approve All
-                </button>
-                <button
-                  onClick={() => handleBulkAction("rejected")}
-                  className="flex items-center gap-1.5 rounded-xl bg-red-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-red-600 shadow-sm"
-                >
-                  <X size={14} />
-                  Reject All
-                </button>
-                <button
-                  onClick={() => setSelectedIds(new Set())}
-                  className="ml-auto text-xs font-semibold text-blue-600 hover:underline"
-                >
-                  Clear selection
-                </button>
-              </div>
-            )}
-
-            {/* Select All row */}
-            {filteredReviews.length > 0 && (
-              <div className="flex items-center gap-3 border-b border-black/5 px-5 py-2 bg-gray-50/50">
-                <label className="flex items-center gap-2 text-xs font-semibold text-secondary/60 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 cursor-pointer rounded accent-primary"
-                    checked={selectedIds.size === filteredReviews.length && filteredReviews.length > 0}
-                    onChange={toggleSelectAll}
-                  />
-                  Select All ({filteredReviews.length})
-                </label>
-              </div>
-            )}
           </div>
 
           {/* ═══════════════ REVIEW CARDS LIST ═══════════════ */}
@@ -725,10 +670,6 @@ export default function AdminReviewsPage() {
                 <ReviewAdminCard
                   key={review._id}
                   review={review}
-                  selected={selectedIds.has(review._id)}
-                  onToggleSelect={() => toggleSelect(review._id)}
-                  onApprove={() => handleUpdateStatus(review._id, "approved")}
-                  onReject={() => handleUpdateStatus(review._id, "rejected")}
                   onToggleFeatured={() => handleToggleFeatured(review._id)}
                   onDelete={() => handleDelete(review._id)}
                   isReplying={replyingId === review._id}
@@ -812,10 +753,6 @@ function MetricCard({
 /* ══════════════════ REVIEW ADMIN CARD ══════════════════ */
 function ReviewAdminCard({
   review,
-  selected,
-  onToggleSelect,
-  onApprove,
-  onReject,
   onToggleFeatured,
   onDelete,
   isReplying,
@@ -835,10 +772,6 @@ function ReviewAdminCard({
   statusIcon,
 }: {
   review: any;
-  selected: boolean;
-  onToggleSelect: () => void;
-  onApprove: () => void;
-  onReject: () => void;
   onToggleFeatured: () => void;
   onDelete: () => void;
   isReplying: boolean;
@@ -859,9 +792,9 @@ function ReviewAdminCard({
 }) {
   return (
     <div
-      className={`rounded-2xl border bg-white shadow-sm transition-all hover:shadow-md ${
-        selected ? "border-primary/40 ring-2 ring-primary/10" : "border-black/5"
-      } ${review.isFeatured ? "ring-2 ring-amber-300/40 border-amber-200" : ""}`}
+      className={`rounded-2xl border bg-white shadow-sm transition-all hover:shadow-md border-black/5 ${
+        review.isFeatured ? "ring-2 ring-amber-300/40 border-amber-200" : ""
+      }`}
     >
       {/* Featured banner */}
       {review.isFeatured && (
@@ -872,16 +805,8 @@ function ReviewAdminCard({
       )}
 
       <div className="p-5">
-        {/* Top row: checkbox + user info + status + rating */}
+        {/* Top row: user info + status + rating */}
         <div className="flex items-start gap-4">
-          {/* Checkbox */}
-          <input
-            type="checkbox"
-            className="mt-1 h-4 w-4 shrink-0 cursor-pointer rounded accent-primary"
-            checked={selected}
-            onChange={onToggleSelect}
-          />
-
           {/* Avatar */}
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary/15 to-primary/5 text-primary text-sm font-bold">
             {getUserInitial(review.user)}
@@ -927,7 +852,7 @@ function ReviewAdminCard({
         </div>
 
         {/* Title + Comment */}
-        <div className="mt-4 ml-[72px]">
+        <div className="mt-4 ml-14">
           {review.title && (
             <h4 className="font-bold text-secondary">{review.title}</h4>
           )}
@@ -1019,28 +944,6 @@ function ReviewAdminCard({
 
           {/* Actions row */}
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            {/* Approve */}
-            {review.status !== "approved" && (
-              <button
-                onClick={onApprove}
-                className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100 hover:shadow-sm"
-              >
-                <CheckCircle2 size={14} />
-                Approve
-              </button>
-            )}
-
-            {/* Reject */}
-            {review.status !== "rejected" && (
-              <button
-                onClick={onReject}
-                className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-bold text-red-600 transition hover:bg-red-100 hover:shadow-sm"
-              >
-                <XCircle size={14} />
-                Reject
-              </button>
-            )}
-
             {/* Reply */}
             {!isReplying && !review.adminReply && (
               <button

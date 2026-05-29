@@ -31,7 +31,7 @@ const ReviewSchema = new Schema<IReview>(
     helpfulCount: { type: Number, default: 0 },
     helpfulBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
     verified: { type: Boolean, default: true },
-    status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+    status: { type: String, enum: ["pending", "approved", "rejected"], default: "approved" },
     adminReply: { type: String, default: "" },
     adminReplyAt: { type: Date },
     isFeatured: { type: Boolean, default: false },
