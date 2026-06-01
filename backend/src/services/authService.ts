@@ -18,6 +18,12 @@ export const login = async (email: string, password: string) => {
   if (!user) throw new ApiError(401, "Invalid credentials");
   const match = await user.comparePassword(password);
   if (!match) throw new ApiError(401, "Invalid credentials");
+
+  // Block locked accounts from logging in
+  if (user.status === "locked") {
+    throw new ApiError(403, "Your account has been locked. Please contact support for assistance.");
+  }
+
   const tokens = issueTokens(user);
   return { user, ...tokens };
 };
@@ -29,6 +35,13 @@ export const logout = async (userId: string) => {
 export const refresh = async (userId: string) => {
   const user = await User.findById(userId);
   if (!user) throw new ApiError(401, "Invalid user");
+
+  // Block locked accounts from refreshing tokens
+  if (user.status === "locked") {
+    await redis.del(refreshKey(userId));
+    throw new ApiError(403, "Your account has been locked. Please contact support for assistance.");
+  }
+
   const tokens = issueTokens(user);
   return { user, ...tokens };
 };

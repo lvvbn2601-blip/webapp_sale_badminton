@@ -74,6 +74,10 @@ export default function StringingBoardTab({ tasks, stringers, onCreateTask, onSt
         <div>
           <p className="text-[10px] font-semibold text-secondary/50">#{t._id.slice(-8).toUpperCase()}</p>
           <p className="font-semibold text-secondary">{t.customerName}</p>
+          <p className="text-secondary/50 text-xs">Tel: {t.customerPhone}</p>
+          {type === "pending" && t.createdAt && (<p className="text-secondary/50 text-xs">{t.createdAt.slice(0,10)} {t.createdAt.slice(12,16)}</p>)}
+          {type === "in_progress" && t.startedAt && (<p className="text-secondary/50 text-xs">Started: {t.startedAt.slice(0,10)} {t.startedAt.slice(12,16)}</p>)}
+          {type === "completed" && t.completedAt && (<p className="text-secondary/50 text-xs">Completed: {t.completedAt.slice(0, 10)} {t.completedAt.slice(12, 16)}</p>)}
         </div>
         <div className="flex flex-col items-end gap-1">
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${DIFF_COLORS[t.difficulty]}`}>{DIFF_LABEL[t.difficulty]}</span>

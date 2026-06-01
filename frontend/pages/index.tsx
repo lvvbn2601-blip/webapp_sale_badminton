@@ -280,8 +280,8 @@ export default function HomePage({ categories, trending, bestSellers, featuredRe
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               {(featuredReviews?.length > 0 ? featuredReviews : reviews).slice(0, 4).map((review) => (
-                <Link href={`/products/${review.product?.slug}`}>
-                  <ReviewCard key={review.id || review._id} review={review} />
+                <Link key={review.id || review._id} href={`/products/${review.product?.slug}`}>
+                  <ReviewCard review={review} />
                 </Link>
               ))}
             </div>
@@ -309,6 +309,8 @@ export default function HomePage({ categories, trending, bestSellers, featuredRe
   );
 }
 
+const truncate = (s: string, max: number) => s && s.length > max ? s.slice(0, max) + '…' : s;
+
 const mapProductForGrid = (p: any) => ({
   _id: p._id || p.id || null,
   id: p.id || p._id || null,
@@ -323,7 +325,7 @@ const mapProductForGrid = (p: any) => ({
   badges: p.badges || [],
   specs: p.specs || {},
   category: p.category || null,
-  description: p.description || "",
+  description: truncate(p.description || "", 120),
 });
 
 const mapCategory = (c: any) => ({
@@ -350,18 +352,29 @@ export const getServerSideProps: GetServerSideProps<any> = async () => {
       fetchTrending(),
       fetchBestSellers(),
       fetchFeaturedReviews(),
-      fetchProducts({ category: racketCatId, limit: 100 })
+      fetchProducts({ category: racketCatId, limit: 20 })
     ]);
 
     return {
       props: {
         categories,
-        trending: (trending || []).map(mapProductForGrid),
-        bestSellers: (bestSellers || []).map(mapProductForGrid),
-        featuredReviews: (featuredReviewsRes || []).map((r: any) => ({
-          ...r,
+        trending: (trending || []).slice(0, 8).map(mapProductForGrid),
+        bestSellers: (bestSellers || []).slice(0, 8).map(mapProductForGrid),
+        featuredReviews: (featuredReviewsRes || []).slice(0, 4).map((r: any) => ({
           id: r._id || r.id,
-          date: r.createdAt || r.date || new Date().toISOString()
+          user: typeof r.user === 'object' ? { name: r.user?.name } : r.user,
+          rating: r.rating || 0,
+          title: r.title || '',
+          comment: truncate(r.comment || '', 200),
+          date: r.createdAt || r.date || new Date().toISOString(),
+          verified: r.verified ?? true,
+          tags: (r.tags || []).slice(0, 3),
+          helpfulCount: r.helpfulCount || 0,
+          adminReply: r.adminReply || null,
+          adminReplyAt: r.adminReplyAt || null,
+          images: (r.images || []).slice(0, 3),
+          videos: (r.videos || []).slice(0, 2),
+          product: r.product ? { slug: r.product.slug || r.product } : null,
         })),
         initialProducts: (productsData?.data || []).map(mapProductForGrid)
       }

@@ -76,6 +76,7 @@ export default function RegisterPage() {
                 required
                 className="w-full rounded-xl border border-black/5 bg-white px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
+              
               {error && <p className="text-sm text-primary">{error}</p>}
               <button className="btn-primary w-full" disabled={loading}>
                 {loading ? "Creating..." : "Sign up"}

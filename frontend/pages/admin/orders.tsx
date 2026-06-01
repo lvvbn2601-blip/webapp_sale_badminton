@@ -952,8 +952,8 @@ export default function AdminOrdersPage() {
             <StatCard label="Delivered" value={orders.filter(o => o.status === "delivered").length} />
           </div>
 
-          <div className="flex flex-col gap-4 rounded-2xl border border-black/5 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex w-full overflow-x-auto pb-2 sm:w-auto sm:pb-0 hide-scrollbar gap-2">
+          <div className=" gap-4 rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
+            <div className="flex w-full overflow-x-auto pb-2 sm:w-auto sm:pb-0 hide-scrollbar gap-2 border-b border-black/5 mb-4">
               {[
                 { id: "all", label: "All Orders" },
                 { id: "pending", label: "📝Pending" },
@@ -981,7 +981,7 @@ export default function AdminOrdersPage() {
                 </button>
               ))}
             </div>
-            <div className="w-full sm:w-72 relative">
+            <div className="w-full sm:w-72 relative ">
               <span className="absolute inset-y-0 left-4 top-1/2 -translate-y-1/2 text-lg opacity-50">🔍</span>
               <input
                 className="w-full rounded-full border-none bg-black/5 pl-10 pr-4 py-3 text-sm shadow-inner focus:bg-white border focus:border-primary/20 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"

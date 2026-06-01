@@ -32,7 +32,7 @@ const SHIPPING_METHODS = [
 ];
 
 const PAYMENT_METHODS = [
-    {
+  {
     id: "VNPay",
     label: "VNPay",
     icon: "vnpay",
