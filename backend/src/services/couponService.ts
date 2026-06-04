@@ -19,19 +19,47 @@ export const listCoupons = async () => {
 export const listPublicCoupons = async (userId?: string) => {
   // Auto-expire overdue coupons before listing
   await expireOverdueCoupons();
-  const coupons = await Coupon.find({ status: "running" }).sort({ createdAt: -1 }).lean();
-  if (!userId) return coupons;
+  let coupons = await Coupon.find({ status: "running" }).sort({ createdAt: -1 }).lean();
+  
+  if (!userId) {
+    return coupons.filter((c: any) => c.customerTarget === "all" && c.membershipTarget === "all");
+  }
+  
+  const user = await User.findById(userId);
+  const orderCount = await Order.countDocuments({ user: userId, status: { $ne: "cancelled" } });
+  
+  const tiers = ["Bronze", "Silver", "Gold", "Diamond"];
+  const userTierIdx = user ? tiers.indexOf(user.membershipTier || "Bronze") : 0;
+
+  coupons = coupons.filter((c: any) => {
+    if (c.membershipTarget !== "all") {
+      const requiredTierIdx = tiers.indexOf(
+        c.membershipTarget.charAt(0).toUpperCase() + c.membershipTarget.slice(1)
+      );
+      if (userTierIdx < requiredTierIdx) return false;
+    }
+    if (c.customerTarget === "new") {
+      if (orderCount > 0) return false;
+    } else if (c.customerTarget === "specific") {
+      if (!user || !c.specificCustomers || c.specificCustomers.length === 0) return false;
+      const isMatch = c.specificCustomers.some((identifier: string) => 
+        identifier === user.email || identifier === user.phone
+      );
+      if (!isMatch) return false;
+    }
+    return true;
+  });
   
   return Promise.all(
     coupons.map(async (c: any) => {
       let usedByCurrentUser = false;
-      if (c.limitPerCustomer === 1) {
-        const order = await Order.findOne({ 
+      if (c.limitPerCustomer && c.limitPerCustomer < 999) {
+        const uOrders = await Order.countDocuments({ 
           user: userId, 
           discountCode: new RegExp(`^${c.code}$`, "i"), 
           status: { $ne: "cancelled" } 
         });
-        if (order) usedByCurrentUser = true;
+        if (uOrders >= c.limitPerCustomer) usedByCurrentUser = true;
       }
       return { ...c, usedByCurrentUser };
     })
@@ -130,22 +158,7 @@ export const calculateDiscountForItems = async (coupon: any, items: any[]) => {
   return { discount, eligibleSubtotal };
 };
 
-export const applyCoupon = async (code: string, subtotal: number, items: any[] = [], userId?: string) => {
-  const coupon = await Coupon.findOne({ code: code.toUpperCase() });
-  if (!coupon) throw new ApiError(404, "Coupon not found");
-  if (coupon.startDate > new Date()) throw new ApiError(400, "Coupon is not yet active");
-  if (coupon.expiresAt < new Date()) {
-    // Auto-mark as completed if expired
-    if (coupon.status === "running" || coupon.status === "waiting") {
-      coupon.status = "completed";
-      await coupon.save();
-    }
-    throw new ApiError(400, "Coupon expired");
-  }
-  if (coupon.status === "paused" || coupon.status === "completed") throw new ApiError(400, "Coupon is not active");
-  if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit)
-    throw new ApiError(400, "Coupon usage limit reached");
-    
+export const validateCouponForUser = async (coupon: any, userId?: string) => {
   if (coupon.customerTarget !== "all" || coupon.membershipTarget !== "all") {
     if (!userId) throw new ApiError(401, "You must be logged in to use this coupon.");
     const user = await User.findById(userId);
@@ -174,7 +187,7 @@ export const applyCoupon = async (code: string, subtotal: number, items: any[] =
       if (!coupon.specificCustomers || coupon.specificCustomers.length === 0) {
         throw new ApiError(403, "This coupon is for specific customers only.");
       }
-      const isMatch = coupon.specificCustomers.some(identifier => 
+      const isMatch = coupon.specificCustomers.some((identifier: string) => 
         identifier === user.email || identifier === user.phone
       );
       if (!isMatch) {
@@ -194,6 +207,25 @@ export const applyCoupon = async (code: string, subtotal: number, items: any[] =
       throw new ApiError(403, `You have reached the usage limit for this coupon (${coupon.limitPerCustomer} time(s)).`);
     }
   }
+};
+
+export const applyCoupon = async (code: string, subtotal: number, items: any[] = [], userId?: string) => {
+  const coupon = await Coupon.findOne({ code: code.toUpperCase() });
+  if (!coupon) throw new ApiError(404, "Coupon not found");
+  if (coupon.startDate > new Date()) throw new ApiError(400, "Coupon is not yet active");
+  if (coupon.expiresAt < new Date()) {
+    // Auto-mark as completed if expired
+    if (coupon.status === "running" || coupon.status === "waiting") {
+      coupon.status = "completed";
+      await coupon.save();
+    }
+    throw new ApiError(400, "Coupon expired");
+  }
+  if (coupon.status === "paused" || coupon.status === "completed") throw new ApiError(400, "Coupon is not active");
+  if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit)
+    throw new ApiError(400, "Coupon usage limit reached");
+    
+  await validateCouponForUser(coupon, userId);
     
   let discount = 0;
   let finalSubtotal = subtotal;

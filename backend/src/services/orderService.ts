@@ -41,7 +41,9 @@ export const createOrder = async (
       if (existing) throw new ApiError(400, "You have already used this coupon");
     }
 
-    const { calculateDiscountForItems } = await import("./couponService");
+    const { calculateDiscountForItems, validateCouponForUser } = await import("./couponService");
+    await validateCouponForUser(coupon, userId);
+    
     const res = await calculateDiscountForItems(coupon, items);
     discountAmount = res.discount;
 
