@@ -71,3 +71,7 @@ const issueTokens = (user: IUser) => {
   redis.set(refreshKey((user as any).id), refreshToken, "EX", 60 * 60 * 24 * 30);
   return { accessToken, refreshToken, expiresIn: env.jwtExpiresIn };
 };
+
+const hashPassword = async (password: string) => {
+  const salt = await bcrypt.genSalt(10)
+}

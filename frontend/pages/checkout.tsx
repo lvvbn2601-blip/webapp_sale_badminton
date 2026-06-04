@@ -122,7 +122,7 @@ const PaymentIcon = ({ type, size = 24 }: { type: string; size?: number }) => {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { selectedItems, clear } = useCart();
+  const { selectedItems, clearSelected } = useCart();
   const [isReady, setIsReady] = useState(false);
   const { trackEvent, fetchSmartVouchers, smartVouchers } = useTracking();
 
@@ -176,7 +176,7 @@ export default function CheckoutPage() {
       const provider = router.query.payment_status as string;
       if (result === "success") {
         showToast(`Thanh toán ${provider.toUpperCase()} thành công! 🎉`, "success");
-        clear();
+        clearSelected();
         setTimeout(() => router.push("/profile?tab=purchases"), 2000);
       } else {
         showToast(`Thanh toán ${provider.toUpperCase()} thất bại. Vui lòng thử lại.`, "error");
@@ -418,13 +418,13 @@ export default function CheckoutPage() {
     try {
       await simulatePayment(createdOrderId, paymentMethod.toLowerCase(), token);
       showToast(`Thanh toán ${paymentMethod} thành công! 🎉`, "success");
-      clear();
+      clearSelected();
       setTimeout(() => router.push("/profile/purchases"), 1500);
     } catch (err: any) {
       showToast(err?.response?.data?.error || "Simulation failed", "error");
       setPaymentProcessing(false);
     }
-  }, [createdOrderId, paymentMethod, clear, router]);
+  }, [createdOrderId, paymentMethod, clearSelected, router]);
 
   const onSubmit = async () => {
     if (!fullName.trim() || !phone.trim() || !street.trim() || !province || !district || !ward) {
@@ -489,7 +489,7 @@ export default function CheckoutPage() {
 
       // For other methods, complete immediately
       showToast("Đặt hàng thành công!", "success");
-      clear();
+      clearSelected();
       setTimeout(() => router.push("/profile/purchases"), 1500);
     } catch (err: any) {
       showToast(err?.response?.data?.error || "Failed to create order", "error");

@@ -24,6 +24,7 @@ type CartContextValue = {
   update: (productId: string, quantity: number) => void;
   remove: (productId: string) => void;
   clear: () => void;
+  clearSelected: () => void;
   toggleSelect: (productId: string) => void;
   selectOnly: (productId: string) => void;
   selectAll: () => void;
@@ -279,6 +280,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const clearSelected = useCallback(() => {
+    const token = getToken();
+    setItems((prev) => prev.filter((i) => !selectedIds.includes(getProductId(i.product))));
+    if (token) {
+      Promise.all(selectedIds.map(id => removeServerCartItem(id, token))).catch(console.warn);
+    }
+    setSelectedIds([]);
+  }, [selectedIds]);
+
   const subtotal = useMemo(
     () => items.reduce((acc, item) => acc + getItemPrice(item.product) * item.quantity, 0),
     [items]
@@ -318,6 +328,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         update,
         remove,
         clear,
+        clearSelected,
         toggleSelect,
         selectOnly,
         selectAll,
