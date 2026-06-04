@@ -2,6 +2,7 @@ import { Coupon } from "../models/Coupon";
 import { Order } from "../models/Order";
 import { Product } from "../models/Product";
 import { Category } from "../models/Category";
+import { User } from "../models/User";
 import { ApiError } from "../utils/apiError";
 
 export const createCoupon = (payload: any) => Coupon.create(payload);
@@ -129,7 +130,7 @@ export const calculateDiscountForItems = async (coupon: any, items: any[]) => {
   return { discount, eligibleSubtotal };
 };
 
-export const applyCoupon = async (code: string, subtotal: number, items: any[] = []) => {
+export const applyCoupon = async (code: string, subtotal: number, items: any[] = [], userId?: string) => {
   const coupon = await Coupon.findOne({ code: code.toUpperCase() });
   if (!coupon) throw new ApiError(404, "Coupon not found");
   if (coupon.startDate > new Date()) throw new ApiError(400, "Coupon is not yet active");
@@ -144,6 +145,55 @@ export const applyCoupon = async (code: string, subtotal: number, items: any[] =
   if (coupon.status === "paused" || coupon.status === "completed") throw new ApiError(400, "Coupon is not active");
   if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit)
     throw new ApiError(400, "Coupon usage limit reached");
+    
+  if (coupon.customerTarget !== "all" || coupon.membershipTarget !== "all") {
+    if (!userId) throw new ApiError(401, "You must be logged in to use this coupon.");
+    const user = await User.findById(userId);
+    if (!user) throw new ApiError(404, "User not found");
+    
+    // Check membership target
+    if (coupon.membershipTarget !== "all") {
+      const tiers = ["Bronze", "Silver", "Gold", "Diamond"];
+      const userTierIdx = tiers.indexOf(user.membershipTier || "Bronze");
+      const requiredTierIdx = tiers.indexOf(
+        coupon.membershipTarget.charAt(0).toUpperCase() + coupon.membershipTarget.slice(1)
+      );
+      
+      if (userTierIdx < requiredTierIdx) {
+        throw new ApiError(403, `This coupon requires ${coupon.membershipTarget} membership or higher.`);
+      }
+    }
+
+    // Check customer target
+    if (coupon.customerTarget === "new") {
+      const orderCount = await Order.countDocuments({ user: userId, status: { $ne: "cancelled" } });
+      if (orderCount > 0) {
+        throw new ApiError(403, "This coupon is only for new customers on their first purchase.");
+      }
+    } else if (coupon.customerTarget === "specific") {
+      if (!coupon.specificCustomers || coupon.specificCustomers.length === 0) {
+        throw new ApiError(403, "This coupon is for specific customers only.");
+      }
+      const isMatch = coupon.specificCustomers.some(identifier => 
+        identifier === user.email || identifier === user.phone
+      );
+      if (!isMatch) {
+        throw new ApiError(403, "You are not eligible to use this coupon.");
+      }
+    }
+  }
+
+  // Check limit per customer
+  if (coupon.limitPerCustomer && coupon.limitPerCustomer < 999 && userId) {
+    const userOrdersCount = await Order.countDocuments({
+      user: userId,
+      discountCode: new RegExp(`^${coupon.code}$`, "i"),
+      status: { $ne: "cancelled" }
+    });
+    if (userOrdersCount >= coupon.limitPerCustomer) {
+      throw new ApiError(403, `You have reached the usage limit for this coupon (${coupon.limitPerCustomer} time(s)).`);
+    }
+  }
     
   let discount = 0;
   let finalSubtotal = subtotal;

@@ -120,6 +120,7 @@ export default function AdminVouchers() {
   const [excludeShuttlecocks, setExcludeShuttlecocks] = useState(true);
 
   const [customerTarget, setCustomerTarget] = useState("all");
+  const [specificCustomersData, setSpecificCustomersData] = useState("");
   const [membershipTarget, setMembershipTarget] = useState("all");
 
   const [usageLimit, setUsageLimit] = useState<number | "">("");
@@ -245,6 +246,7 @@ export default function AdminVouchers() {
       excludeFlashSale,
       excludeShuttlecocks,
       customerTarget,
+      specificCustomers: customerTarget === "specific" ? specificCustomersData.split(',').map(s => s.trim()).filter(Boolean) : [],
       membershipTarget,
       usageLimit: usageLimit ? Number(usageLimit) : undefined,
       limitPerCustomer
@@ -289,7 +291,7 @@ export default function AdminVouchers() {
       setStartDate(""); setEndDate("");
       setMinOrderValue(""); setLimitPerCustomer(1);
       setSelectedCategories([]); setSelectedProducts([]);
-      setApplyTo("store");
+      setApplyTo("store"); setCustomerTarget("all"); setSpecificCustomersData(""); setMembershipTarget("all");
     } catch (e: any) {
       showToast(e?.response?.data?.error || `Failed to ${editingId ? "update" : "create"} voucher`, "error");
     } finally {
@@ -308,6 +310,9 @@ export default function AdminVouchers() {
     setUsageLimit(v.usageLimit || "");
     setLimitPerCustomer((v as any).limitPerCustomer || 1);
     setApplyTo((v as any).applyTo || "store");
+    setCustomerTarget((v as any).customerTarget || "all");
+    setSpecificCustomersData(((v as any).specificCustomers || []).join(", "));
+    setMembershipTarget((v as any).membershipTarget || "all");
     setSelectedCategories((v.applicableCategories || []).map((c: any) => c._id || c));
     setSelectedProducts((v.applicableProducts || []).map((p: any) => p._id || p));
 
@@ -476,7 +481,7 @@ export default function AdminVouchers() {
                 onClick={() => {
                   setEditingId(null);
                   setCode(""); setProgram(""); setAmount(""); setMaxDiscount(""); setUsageLimit("");
-                  setStartDate(""); setEndDate("");
+                  setStartDate(""); setEndDate(""); setSpecificCustomersData("");
                   setView("form");
                 }}
                 className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary/90"
@@ -981,18 +986,30 @@ export default function AdminVouchers() {
                     <Users size={16} /> Customer Conditions
                   </h3>
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <select value={customerTarget} onChange={e => setCustomerTarget(e.target.value)} className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-medium outline-none transition focus:border-primary">
-                      <option value="all">All Customers</option>
-                      <option value="new">New Customers Only (First Purchase)</option>
-                      <option value="specific">Specific Phone/Email</option>
-                    </select>
-                    <select value={membershipTarget} onChange={e => setMembershipTarget(e.target.value)} className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-medium outline-none transition focus:border-primary">
-                      <option value="all">All Membership Tiers</option>
-                      <option value="bronze">Bronze & Above</option>
-                      <option value="silver">Silver & Above</option>
-                      <option value="gold">Gold & Diamond Only</option>
-                      <option value="diamond">Diamond Only</option>
-                    </select>
+                    <div className="flex flex-col gap-2">
+                      <select value={customerTarget} onChange={e => setCustomerTarget(e.target.value)} className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-medium outline-none transition focus:border-primary">
+                        <option value="all">All Customers</option>
+                        <option value="new">New Customers Only (First Purchase)</option>
+                        <option value="specific">Specific Phone/Email</option>
+                      </select>
+                      {customerTarget === "specific" && (
+                        <textarea
+                          value={specificCustomersData}
+                          onChange={e => setSpecificCustomersData(e.target.value)}
+                          placeholder="Enter emails or phones separated by commas (e.g. user1@gmail.com, 0901234567)"
+                          className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-medium outline-none transition focus:border-primary min-h-[80px]"
+                        />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <select value={membershipTarget} onChange={e => setMembershipTarget(e.target.value)} className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-medium outline-none transition focus:border-primary">
+                        <option value="all">All Membership Tiers</option>
+                        <option value="bronze">Bronze & Above</option>
+                        <option value="silver">Silver & Above</option>
+                        <option value="gold">Gold & Diamond Only</option>
+                        <option value="diamond">Diamond Only</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>

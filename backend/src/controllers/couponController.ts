@@ -39,7 +39,7 @@ export const deleteCoupon = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const applyCoupon = asyncHandler(async (req: Request, res: Response) => {
-  const { code, subtotal } = req.body;
-  const result = await CouponService.applyCoupon(code, subtotal);
+  const { code, subtotal, items } = req.body;
+  const result = await CouponService.applyCoupon(code, subtotal, items, (req as any).user?.sub);
   res.json(ok(result));
 });

@@ -18,7 +18,8 @@ export interface ICoupon extends Document {
   excludeFlashSale: boolean;
   excludeShuttlecocks: boolean;
   
-  customerTarget: string; // e.g., "all", "new"
+  customerTarget: string; // e.g., "all", "new", "specific"
+  specificCustomers?: string[]; // Array of emails or phones for specific targeting
   membershipTarget: string; // e.g., "all", "bronze", "silver", "gold", "diamond"
   
   usageLimit?: number;
@@ -46,6 +47,7 @@ const CouponSchema = new Schema<ICoupon>(
     excludeShuttlecocks: { type: Boolean, default: false },
     
     customerTarget: { type: String, default: "all" },
+    specificCustomers: [{ type: String }],
     membershipTarget: { type: String, default: "all" },
     
     usageLimit: { type: Number },
