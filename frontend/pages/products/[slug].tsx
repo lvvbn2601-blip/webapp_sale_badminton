@@ -20,8 +20,7 @@ import { useCart } from "../../context/CartContext";
 import { useTracking } from "../../lib/useTracking";
 import SmartVoucherPopup from "../../components/SmartVoucherPopup";
 
-// Dynamic variant component driven by product specs
-import DynamicVariantOptions, { STRING_TYPES, getSpecCount, SPEC_OPTIONS } from "../../components/product-detail/DynamicVariantOptions";
+import DynamicVariantOptions, { getSpecCount, SPEC_OPTIONS } from "../../components/product-detail/DynamicVariantOptions";
 import PurchasePolicy from "../../components/product-detail/PurchasePolicy";
 
 type Props = { product: Product | null; related: Product[]; allCategoryProducts: Product[] };
@@ -62,8 +61,18 @@ export default function ProductDetailPage({ product, related, allCategoryProduct
 
   // ── Stringing service state ──
   const [addStringService, setAddStringService] = useState(false);
-  const [stringType, setStringType] = useState("bg66u");
+  const [stringType, setStringType] = useState("");
   const [tension, setTension] = useState(24);
+  const [strings, setStrings] = useState<any[]>([]);
+
+  useEffect(() => {
+    import("../../lib/api").then(api => {
+      api.fetchStringSpools().then(data => {
+        setStrings(data);
+        if (data.length > 0) setStringType(data[0]._id);
+      }).catch(e => console.warn(e));
+    });
+  }, []);
 
   const cart = useCart();
   const router = useRouter();
@@ -147,11 +156,11 @@ export default function ProductDetailPage({ product, related, allCategoryProduct
     if (!product) return 0;
     let base = getPrice(product);
     if (addStringService) {
-      const st = STRING_TYPES.find(s => s.id === stringType);
-      base += st?.price || 15;
+      const st = strings.find(s => s._id === stringType);
+      base += (st?.price / 25000);
     }
     return base;
-  }, [product, addStringService, stringType]);
+  }, [product, addStringService, stringType, strings]);
 
   /* ── Validate variant selections ─────────── */
   const hasInvalidSelection = useMemo(() => {
@@ -180,11 +189,16 @@ export default function ProductDetailPage({ product, related, allCategoryProduct
       opts.addStringingService = true;
       opts.stringType = stringType;
       opts.stringTension = tension;
+      const st = strings.find((s) => s._id === stringType);
+      if (st) {
+        opts.stringName = st.name;
+        opts.stringPrice = st.price;
+      }
     }
     // Attach all selections as a generic map too
     (opts as any).specSelections = { ...variantSelections };
     return opts;
-  }, [variantSelections, addStringService, stringType, tension]);
+  }, [variantSelections, addStringService, stringType, tension, strings]);
 
   const handleVariantSelect = useCallback((key: string, value: string) => {
     setVariantSelections(prev => ({ ...prev, [key]: value }));

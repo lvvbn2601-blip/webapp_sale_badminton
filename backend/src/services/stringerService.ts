@@ -409,6 +409,27 @@ export async function completeTask(taskId: string) {
     }
   }
 
+  // Auto-deduct string inventory (10 meters)
+  try {
+    const { StringSpool } = await import("../models/StringSpool");
+    const mongoose = (await import("mongoose")).default;
+    
+    let query;
+    if (mongoose.Types.ObjectId.isValid(task.stringType)) {
+      query = { $or: [{ _id: task.stringType }, { name: task.stringType }] };
+    } else {
+      query = { name: task.stringType };
+    }
+    
+    const spool = await StringSpool.findOne(query);
+    if (spool) {
+      spool.currentMeters = Math.max(0, spool.currentMeters - 10);
+      await spool.save();
+    }
+  } catch (err) {
+    console.error("Failed to deduct string inventory:", err);
+  }
+
   return task.populate("stringer");
 }
 

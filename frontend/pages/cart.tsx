@@ -215,7 +215,7 @@ export default function CartPage() {
                         {item?.variantOptions?.addStringingService ?
                           <div className="flex items-center gap-1 mt-1">
                             <Wrench className="w-3 h-3 text-primary" />
-                            <span className="text-[11px] font-semibold text-primary">Stringing: {item.variantOptions.stringType} @ {item.variantOptions.stringTension} lbs</span>
+                            <span className="text-[11px] font-semibold text-primary">Stringing: {item.variantOptions.stringName || item.variantOptions.stringType} @ {item.variantOptions.stringTension} lbs</span>
                           </div> : <span className="text-[11px] font-semibold text-primary">No</span>
                         }
                       </div>

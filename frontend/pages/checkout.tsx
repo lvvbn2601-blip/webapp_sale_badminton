@@ -234,8 +234,16 @@ export default function CheckoutPage() {
 
   const items = selectedItems;
   const USD_TO_VND = 25000;
+  const getItemPriceVND = (i: any) => {
+    let base = (i.product.price || (i.product as any).basePrice || 0) * USD_TO_VND;
+    if (i.variantOptions?.addStringingService && i.variantOptions?.stringPrice) {
+      base += i.variantOptions.stringPrice;
+    }
+    return base;
+  };
+
   const baseSubtotalVND = items.reduce(
-    (acc, i) => acc + (i.product.price || (i.product as any).basePrice || 0) * USD_TO_VND * i.quantity,
+    (acc, i) => acc + getItemPriceVND(i) * i.quantity,
     0
   );
 
@@ -276,7 +284,7 @@ export default function CheckoutPage() {
       }
 
       if (isEligible) {
-        eligibleSubtotal += (product.price || product.basePrice || 0) * USD_TO_VND * item.quantity;
+        eligibleSubtotal += getItemPriceVND(item) * item.quantity;
       }
     });
 
@@ -452,7 +460,7 @@ export default function CheckoutPage() {
             productId: i.product.id || (i.product as any)._id,
             name: i.product.name,
             image: i.product.image,
-            price: i.product.price || (i.product as any).basePrice || 0,
+            price: (i.product.price || (i.product as any).basePrice || 0) + (vo.addStringingService && vo.stringPrice ? vo.stringPrice / USD_TO_VND : 0),
             quantity: i.quantity,
             // Variant metadata
             selectedColor: vo.selectedColor,
@@ -464,7 +472,7 @@ export default function CheckoutPage() {
             accessoryType: vo.accessoryType,
             // Stringing service
             needsStringing: vo.addStringingService || false,
-            stringType: vo.stringType,
+            stringType: vo.stringName || vo.stringType,
             stringTension: vo.stringTension,
           };
         }),
@@ -1102,7 +1110,7 @@ export default function CheckoutPage() {
                           {vo?.addStringingService && (
                             <div className="flex items-center gap-1 mt-1">
                               <Wrench className="w-3 h-3 text-primary" />
-                              <span className="text-[11px] font-semibold text-primary">Stringing: {vo.stringType} @ {vo.stringTension} lbs</span>
+                              <span className="text-[11px] font-semibold text-primary">Stringing: {vo.stringName || vo.stringType} @ {vo.stringTension} lbs</span>
                             </div>
                           )}
                           {!vo?.selectedColor && !vo?.selectedGrip && !vo?.selectedSize && !vo?.addStringingService && !vo?.selectedBagType && !vo?.accessoryType && (
@@ -1111,7 +1119,7 @@ export default function CheckoutPage() {
                         </div>
                       </div>
                       <div className="text-sm font-bold text-gray-800 shrink-0">
-                        {formatVND((item.product.price || (item.product as any).basePrice || 0) * USD_TO_VND * item.quantity)}
+                        {formatVND(getItemPriceVND(item) * item.quantity)}
                       </div>
                     </div>
                   );

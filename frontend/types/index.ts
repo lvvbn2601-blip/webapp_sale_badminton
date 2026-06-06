@@ -73,6 +73,8 @@ export type VariantOptions = {
   // Stringing service
   addStringingService?: boolean;
   stringType?: string;
+  stringName?: string;
+  stringPrice?: number;
   stringTension?: number;
 };
 

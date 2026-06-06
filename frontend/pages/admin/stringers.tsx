@@ -16,6 +16,9 @@ import {
   completeStringingTask,
   autoAssignTasks,
   approveLevelUp,
+  fetchStringSpools,
+  createStringSpool,
+  updateStringSpoolMeters,
 } from "../../lib/api";
 import StringingBoardTab from "../../components/admin/stringers/StringingBoardTab";
 import StringerManagementTab from "../../components/admin/stringers/StringerManagementTab";
@@ -23,8 +26,9 @@ import PerformanceTab from "../../components/admin/stringers/PerformanceTab";
 
 // ── Inventory types (existing feature, preserved) ──
 type StringSpool = {
-  id: string; name: string; color: string; brand: string;
+  _id: string; name: string; color: string; brand: string;
   currentMeters: number; totalMeters: number; alertThreshold: number;
+  addedBy?: { name: string; email?: string };
 };
 
 type TabKey = "board" | "team" | "performance" | "inventory";
@@ -40,14 +44,10 @@ export default function AdminStringersPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [tick, setTick] = useState(0);
 
-  // String inventory (existing)
-  const [inventory, setInventory] = useState<StringSpool[]>([
-    { id: "sp_01", name: "BG80 Power", color: "White", brand: "Yonex", currentMeters: 40, totalMeters: 200, alertThreshold: 50 },
-    { id: "sp_02", name: "BG66 Ultimax", color: "Yellow", brand: "Yonex", currentMeters: 180, totalMeters: 200, alertThreshold: 50 },
-    { id: "sp_03", name: "Aerosonic", color: "White", brand: "Yonex", currentMeters: 15, totalMeters: 200, alertThreshold: 30 },
-    { id: "sp_04", name: "No.1", color: "Black", brand: "Li-Ning", currentMeters: 120, totalMeters: 200, alertThreshold: 40 },
-    { id: "sp_05", name: "Exbolt 63", color: "White", brand: "Yonex", currentMeters: 5, totalMeters: 200, alertThreshold: 50 },
-  ]);
+  // String inventory
+  const [inventory, setInventory] = useState<StringSpool[]>([]);
+  const [showAddSpool, setShowAddSpool] = useState(false);
+  const [newSpool, setNewSpool] = useState({ name: "", brand: "Yonex", color: "White", totalMeters: 200, price: 150000 });
 
   // Auth & initial data load
   useEffect(() => {
@@ -66,9 +66,10 @@ export default function AdminStringersPage() {
 
   const loadData = async (t: string) => {
     try {
-      const [s, tk] = await Promise.all([fetchStringers(t), fetchStringingTasks(t)]);
+      const [s, tk, spools] = await Promise.all([fetchStringers(t), fetchStringingTasks(t), fetchStringSpools()]);
       setStringers(Array.isArray(s) ? s : []);
       setTasks(Array.isArray(tk) ? tk : []);
+      setInventory(Array.isArray(spools) ? spools : []);
     } catch (e) { console.warn("Failed to load stringer data", e); }
   };
 
@@ -143,11 +144,22 @@ export default function AdminStringersPage() {
     return "bg-green-500";
   };
 
-  const updateInventoryMeters = (id: string, amount: number) => {
-    setInventory(prev => prev.map(spool => spool.id === id
-      ? { ...spool, currentMeters: Math.max(0, Math.min(spool.totalMeters, spool.currentMeters + amount)) }
-      : spool
-    ));
+  const updateInventoryMeters = async (id: string, amount: number) => {
+    if (!token) return;
+    try {
+      const sp = await updateStringSpoolMeters(id, amount, token);
+      setInventory(prev => prev.map(spool => spool._id === id ? { ...spool, currentMeters: sp.currentMeters } : spool));
+    } catch (e) { console.warn(e); }
+  };
+
+  const handleAddSpoolSubmit = async () => {
+    if (!token || !newSpool.name) return;
+    try {
+      const spool = await createStringSpool(newSpool, token);
+      setInventory(prev => [spool, ...prev]);
+      setShowAddSpool(false);
+      setNewSpool({ name: "", brand: "Yonex", color: "White", totalMeters: 200, price: 150000 });
+    } catch (e) { console.warn(e); }
   };
 
   if (!authChecked) return null;
@@ -221,10 +233,44 @@ export default function AdminStringersPage() {
           >
             <div className="flex items-center justify-between">
               <h2 className="font-heading text-xl font-semibold text-secondary">String Inventory</h2>
-              <button className="flex items-center gap-2 rounded-2xl bg-secondary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-secondary/90">
+              <button onClick={() => setShowAddSpool(true)} className="flex items-center gap-2 rounded-2xl bg-secondary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-secondary/90">
                 <Plus size={16} /> Add New Spool
               </button>
             </div>
+
+            {/* Add Spool Modal */}
+            <AnimatePresence>
+              {showAddSpool && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                  <div className="bg-white border border-black/5 p-6 rounded-3xl shadow-sm mb-2 grid grid-cols-2 md:grid-cols-6 gap-4 items-end">
+                    <div className="col-span-2 md:col-span-1">
+                      <label className="text-xs font-bold text-secondary mb-1 block">Name</label>
+                      <input value={newSpool.name} onChange={e => setNewSpool(s => ({ ...s, name: e.target.value }))} className="w-full border border-black/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary" placeholder="e.g. BG66 Ultimax" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-secondary mb-1 block">Brand</label>
+                      <input value={newSpool.brand} onChange={e => setNewSpool(s => ({ ...s, brand: e.target.value }))} className="w-full border border-black/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-secondary mb-1 block">Color</label>
+                      <input value={newSpool.color} onChange={e => setNewSpool(s => ({ ...s, color: e.target.value }))} className="w-full border border-black/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-secondary mb-1 block">Length (m)</label>
+                      <input type="number" value={newSpool.totalMeters} onChange={e => setNewSpool(s => ({ ...s, totalMeters: Number(e.target.value) }))} className="w-full border border-black/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-secondary mb-1 block">Price (VND)</label>
+                      <input type="number" value={newSpool.price} onChange={e => setNewSpool(s => ({ ...s, price: Number(e.target.value) }))} className="w-full border border-black/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary" />
+                    </div>
+                    <div className="col-span-2 md:col-span-1 flex gap-2">
+                      <button onClick={() => setShowAddSpool(false)} className="flex-1 rounded-xl bg-black/5 py-2 text-sm font-semibold text-secondary transition hover:bg-black/10">Cancel</button>
+                      <button onClick={handleAddSpoolSubmit} disabled={!newSpool.name} className="flex-1 rounded-xl bg-primary py-2 text-sm font-semibold text-white transition hover:bg-primary/90 disabled:opacity-50">Save</button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {inventory.map(spool => {
@@ -234,7 +280,7 @@ export default function AdminStringersPage() {
                 const percent = (spool.currentMeters / spool.totalMeters) * 100;
 
                 return (
-                  <div key={spool.id} className={`flex flex-col gap-4 rounded-3xl border p-5 shadow-sm transition hover:shadow-card bg-white ${isOut ? "border-red-200 bg-red-50/10" : isLow ? "border-yellow-200" : "border-black/5"}`}>
+                  <div key={spool._id} className={`flex flex-col gap-4 rounded-3xl border p-5 shadow-sm transition hover:shadow-card bg-white ${isOut ? "border-red-200 bg-red-50/10" : isLow ? "border-yellow-200" : "border-black/5"}`}>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border shadow-sm ${isOut ? "border-red-200 bg-red-50 text-red-500" : isLow ? "border-yellow-200 bg-yellow-50 text-yellow-600" : "border-black/5 bg-black/5"}`}>
@@ -243,6 +289,7 @@ export default function AdminStringersPage() {
                         <div>
                           <p className="font-semibold text-secondary text-lg">{spool.name}</p>
                           <p className="text-sm text-secondary/60">{spool.brand} • {spool.color}</p>
+                          {spool.addedBy && <p className="text-[10px] text-primary/70 mt-1 font-semibold uppercase tracking-wider">Added by: {spool.addedBy.name}</p>}
                         </div>
                       </div>
                       {isOut ? (
@@ -267,10 +314,10 @@ export default function AdminStringersPage() {
                     <div className="mt-2 flex items-center justify-between border-t border-black/5 pt-4">
                       <p className="text-xs text-secondary/50 font-medium">Quick Adjust (10m)</p>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => updateInventoryMeters(spool.id, -10)} disabled={spool.currentMeters === 0} className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/5 text-secondary transition hover:bg-red-500 hover:text-white disabled:opacity-50 disabled:hover:bg-black/5 disabled:hover:text-secondary">
+                        <button onClick={() => updateInventoryMeters(spool._id, -10)} disabled={spool.currentMeters === 0} className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/5 text-secondary transition hover:bg-red-500 hover:text-white disabled:opacity-50 disabled:hover:bg-black/5 disabled:hover:text-secondary">
                           <Minus size={14} />
                         </button>
-                        <button onClick={() => updateInventoryMeters(spool.id, 10)} disabled={spool.currentMeters >= spool.totalMeters} className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/5 text-secondary transition hover:bg-green-500 hover:text-white disabled:opacity-50 disabled:hover:bg-black/5 disabled:hover:text-secondary">
+                        <button onClick={() => updateInventoryMeters(spool._id, 10)} disabled={spool.currentMeters >= spool.totalMeters} className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/5 text-secondary transition hover:bg-green-500 hover:text-white disabled:opacity-50 disabled:hover:bg-black/5 disabled:hover:text-secondary">
                           <Plus size={14} />
                         </button>
                       </div>

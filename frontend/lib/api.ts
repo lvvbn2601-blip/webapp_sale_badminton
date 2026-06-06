@@ -703,6 +703,27 @@ export const fetchStringerStats = async (id: string, token: string) => {
   return data.data;
 };
 
+// ── String Inventory (Spools) ────────────────────────────────
+
+export const fetchStringSpools = async () => {
+  const { data } = await api.get("/stringers/spools");
+  return data.data as any[];
+};
+
+export const createStringSpool = async (payload: any, token: string) => {
+  const { data } = await api.post("/stringers/spools", payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
+export const updateStringSpoolMeters = async (id: string, amount: number, token: string) => {
+  const { data } = await api.put(`/stringers/spools/${id}/meters`, { amount }, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.data;
+};
+
 // ── Stringing Tasks ──────────────────────────────────────────
 
 export const fetchStringingTasks = async (token: string, filter?: { status?: string; stringer?: string }) => {

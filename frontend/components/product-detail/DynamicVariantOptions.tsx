@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Check, Info } from "lucide-react";
 import { Product } from "../../types";
+import { fetchStringSpools } from "../../lib/api";
 
 /* ── Spec options map — reuse the same structure as FilterSidebar ── */
 export const SPEC_OPTIONS: Record<string, string[]> = {
@@ -87,13 +88,8 @@ const SPEC_ICONS: Record<string, string> = {
 };
 
 /* ── Racket-specific: Stringing service constants ── */
-export const STRING_TYPES = [
-  { id: "bg65", name: "Yonex BG65", desc: "All-round durability", price: 12 },
-  { id: "bg66u", name: "Yonex BG66 Ultimax", desc: "High repulsion power", price: 15 },
-  { id: "bg80", name: "Yonex BG80", desc: "Hard hitting feel", price: 14 },
-  { id: "nanogy99", name: "Yonex Nanogy 99", desc: "Control & feel", price: 16 },
-  { id: "li-no1", name: "Li-Ning No.1", desc: "Explosive power", price: 13 },
-];
+// Deprecated hardcoded list, now fetched dynamically
+// export const STRING_TYPES = [...]
 
 const getTensionZone = (t: number) => {
   if (t <= 21) return { label: "Soft", color: "text-sky-500", bg: "bg-sky-50", desc: "Maximum repulsion, forgiving sweet spot. Best for beginners." };
@@ -157,8 +153,16 @@ export default function DynamicVariantOptions({
     return RACKET_SPEC_KEYS.filter((k) => specKeys.includes(k)).length >= 2;
   }, [specs]);
 
+  const [strings, setStrings] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isRacket) {
+      fetchStringSpools().then(data => setStrings(data)).catch(console.warn);
+    }
+  }, [isRacket]);
+
   const zone = getTensionZone(tension);
-  const selectedString = STRING_TYPES.find((s) => s.id === stringType) || STRING_TYPES[0];
+  const selectedStringObj = strings.find((s) => s._id === stringType) || strings[0] || { name: "", price: 0 };
 
   if (specEntries.length === 0) return null;
 
@@ -299,7 +303,7 @@ export default function DynamicVariantOptions({
                 </div>
               </div>
               <span className={`font-mono text-sm font-bold ${addStringService ? "text-primary" : "text-secondary/60"}`}>
-                +${selectedString.price}.00
+                +{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(selectedStringObj.price || 0)}
               </span>
             </div>
           </div>
@@ -311,26 +315,31 @@ export default function DynamicVariantOptions({
               <div>
                 <label className="mb-3 block text-sm font-bold text-secondary">String Type</label>
                 <div className="grid gap-2">
-                  {STRING_TYPES.map((s) => (
+                  {strings.map((s) => (
                     <button
-                      key={s.id}
-                      onClick={(e) => { e.stopPropagation(); onStringTypeChange?.(s.id); }}
+                      key={s._id}
+                      onClick={(e) => { e.stopPropagation(); onStringTypeChange?.(s._id); }}
                       className={`flex items-center justify-between rounded-xl border-2 px-4 py-3 text-left transition-all ${
-                        stringType === s.id
+                        stringType === s._id
                           ? "border-primary bg-primary/5"
                           : "border-black/5 hover:border-black/15 bg-gray-50/50"
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`grid h-5 w-5 place-items-center rounded-full border ${stringType === s.id ? "border-primary bg-primary text-white" : "border-black/15"}`}>
-                          {stringType === s.id && <Check size={10} strokeWidth={3} />}
+                        <div className={`grid h-5 w-5 place-items-center rounded-full border ${stringType === s._id ? "border-primary bg-primary text-white" : "border-black/15"}`}>
+                          {stringType === s._id && <Check size={10} strokeWidth={3} />}
                         </div>
-                        <div>
-                          <span className="text-sm font-bold text-secondary">{s.name}</span>
-                          <span className="ml-2 text-xs text-secondary/50">{s.desc}</span>
+                        <div className="flex flex-col">
+                          <div>
+                            <span className="text-sm font-bold text-secondary">{s.name}</span>
+                            <span className="ml-2 text-xs text-secondary/50">{s.desc}</span>
+                          </div>
+                          {s.addedBy && (
+                            <span className="text-[10px] text-primary/70 font-semibold tracking-wide uppercase mt-0.5">Added by: {s.addedBy.name}</span>
+                          )}
                         </div>
                       </div>
-                      <span className="text-sm font-bold text-primary">${s.price}</span>
+                      <span className="text-sm font-bold text-primary">{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(s.price)}</span>
                     </button>
                   ))}
                 </div>

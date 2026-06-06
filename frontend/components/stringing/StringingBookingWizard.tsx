@@ -4,17 +4,15 @@ import {
   ChevronRight, ChevronLeft, Camera, Upload, Info,
   Check, AlertTriangle, Zap, Clock, Star, ShoppingCart,
 } from "lucide-react";
-import { uploadImage } from "../../lib/api";
+import { useEffect } from "react";
+import { uploadImage, fetchStringSpools } from "../../lib/api";
 
-/* ── String catalog (shared with product detail) ── */
-const STRING_CATALOG = [
-  { id: "bg65", name: "Yonex BG65", price: 120000, power: 60, sound: 50, control: 70, desc: "All-round durability" },
-  { id: "bg66u", name: "Yonex BG66 Ultimax", price: 180000, power: 85, sound: 80, control: 65, desc: "High repulsion power" },
-  { id: "bg80", name: "Yonex BG80 Power", price: 200000, power: 90, sound: 90, control: 60, desc: "Hard hitting feel" },
-  { id: "nanogy99", name: "Yonex Nanogy 99", price: 220000, power: 75, sound: 70, control: 90, desc: "Control & feel" },
-  { id: "li-no1", name: "Li-Ning No.1", price: 160000, power: 80, sound: 75, control: 75, desc: "Explosive power" },
-  { id: "aerosonic", name: "Yonex Aerosonic", price: 250000, power: 70, sound: 95, control: 85, desc: "Ultra thin, crisp sound" },
-];
+/* ── String catalog (dynamic) ── */
+type StringSpool = {
+  _id: string; name: string; price: number; power: number;
+  sound: number; control: number; desc: string;
+  addedBy?: { name: string };
+};
 
 const SERVICE_TYPES = [
   { id: "standard", label: "Standard Service", time: "Delivered within 24 hours", price: 0, icon: "🕐" },
@@ -53,16 +51,24 @@ export default function StringingBookingWizard({ onSubmit, isSubmitting }: Props
   const [uploading, setUploading] = useState(false);
 
   // Step 2: String Parameters
-  const [selectedString, setSelectedString] = useState("bg66u");
+  const [strings, setStrings] = useState<StringSpool[]>([]);
+  const [selectedString, setSelectedString] = useState("");
   const [tension, setTension] = useState(24);
   const [stringPattern, setStringPattern] = useState<"2_knots" | "4_knots">("2_knots");
+
+  useEffect(() => {
+    fetchStringSpools().then(data => {
+      setStrings(data);
+      if (data.length > 0) setSelectedString(data[0]._id);
+    }).catch(e => console.warn(e));
+  }, []);
 
   // Step 3: Service Type
   const [serviceType, setServiceType] = useState("standard");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
 
-  const stringObj = STRING_CATALOG.find(s => s.id === selectedString) || STRING_CATALOG[1];
+  const stringObj = strings.find(s => s._id === selectedString) || strings[0] || { name: "", price: 0 };
   const serviceObj = SERVICE_TYPES.find(s => s.id === serviceType) || SERVICE_TYPES[0];
   const zone = getTensionZone(tension);
   const difficulty = getDifficulty(stringPattern, tension);
@@ -127,10 +133,10 @@ export default function StringingBookingWizard({ onSubmit, isSubmitting }: Props
             {/* Racket Source */}
             <div>
               <label className="mb-3 block text-sm font-bold text-secondary">Racket Source</label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3">
                 {[
                   { id: "bring_to_shop" as const, label: "Bring to Shop", desc: "I'll bring my racket in", icon: "🏪" },
-                  { id: "new_from_cart" as const, label: "From Cart", desc: "New racket from my order", icon: "🛒" },
+                  
                 ].map(opt => (
                   <button key={opt.id} onClick={() => setRacketSource(opt.id)}
                     className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-5 transition ${racketSource === opt.id ? "border-primary bg-primary/5 shadow-sm" : "border-black/5 hover:border-black/10"}`}>
@@ -199,16 +205,21 @@ export default function StringingBookingWizard({ onSubmit, isSubmitting }: Props
             <div>
               <label className="mb-3 block text-sm font-bold text-secondary">Choose String</label>
               <div className="grid gap-2">
-                {STRING_CATALOG.map(s => (
-                  <button key={s.id} onClick={() => setSelectedString(s.id)}
-                    className={`flex items-center justify-between rounded-2xl border-2 px-4 py-3.5 transition ${selectedString === s.id ? "border-primary bg-primary/5 shadow-sm" : "border-black/5 hover:border-black/10"}`}>
+                {strings.map(s => (
+                  <button key={s._id} onClick={() => setSelectedString(s._id)}
+                    className={`flex items-center justify-between rounded-2xl border-2 px-4 py-3.5 transition ${selectedString === s._id ? "border-primary bg-primary/5 shadow-sm" : "border-black/5 hover:border-black/10"}`}>
                     <div className="flex items-center gap-3">
-                      <div className={`grid h-5 w-5 place-items-center rounded-full border ${selectedString === s.id ? "border-primary bg-primary text-white" : "border-black/15"}`}>
-                        {selectedString === s.id && <Check size={10} strokeWidth={3} />}
+                      <div className={`grid h-5 w-5 place-items-center rounded-full border ${selectedString === s._id ? "border-primary bg-primary text-white" : "border-black/15"}`}>
+                        {selectedString === s._id && <Check size={10} strokeWidth={3} />}
                       </div>
-                      <div className="text-left">
-                        <span className="text-sm font-bold text-secondary">{s.name}</span>
-                        <span className="ml-2 text-xs text-secondary/50">{s.desc}</span>
+                      <div className="text-left flex flex-col">
+                        <div>
+                          <span className="text-sm font-bold text-secondary">{s.name}</span>
+                          <span className="ml-2 text-xs text-secondary/50">{s.desc}</span>
+                        </div>
+                        {s.addedBy && (
+                          <span className="text-[10px] text-primary/70 font-semibold tracking-wide uppercase mt-0.5">Added by: {s.addedBy.name}</span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">

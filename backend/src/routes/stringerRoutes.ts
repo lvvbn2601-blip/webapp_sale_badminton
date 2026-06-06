@@ -1,8 +1,15 @@
 import { Router } from "express";
 import * as StringerController from "../controllers/stringerController";
+import * as StringSpoolController from "../controllers/stringSpoolController";
 import { authenticate, authorize } from "../middlewares/auth";
 
 const router = Router();
+
+// ── String Inventory (Spools) ──
+router.get("/spools", StringSpoolController.listSpools);
+router.post("/spools", authenticate, authorize(["admin"]), StringSpoolController.createSpool);
+router.put("/spools/:id/meters", authenticate, authorize(["admin"]), StringSpoolController.updateSpoolMeters);
+router.delete("/spools/:id", authenticate, authorize(["admin"]), StringSpoolController.deleteSpool);
 
 // ── Stringer Management (Admin only) ──
 router.get("/", authenticate, authorize(["admin"]), StringerController.listStringers);
