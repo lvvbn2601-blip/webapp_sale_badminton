@@ -4,6 +4,10 @@ import { Product } from "../models/Product";
 import { ApiError } from "../utils/apiError";
 
 /* ── helpers ──────────────────────────────────────── */
+const matchVariant = (vo1: any, vo2: any) => {
+  return JSON.stringify(vo1 || {}) === JSON.stringify(vo2 || {});
+};
+
 const ensureCart = async (userId: string) => {
   let cart = await Cart.findOne({ user: userId });
   if (!cart) cart = await Cart.create({ user: userId, items: [], subtotal: 0 });
@@ -38,15 +42,19 @@ export const getCart = async (userId: string) => {
   return populateCart(userId);
 };
 
-export const addToCart = async (userId: string, productId: string, quantity: number) => {
+export const addToCart = async (userId: string, productId: string, quantity: number, variantOptions?: any) => {
   const product = await Product.findById(productId);
   if (!product) throw new ApiError(404, "Product not found");
 
   const cart = await ensureCart(userId);
 
-  const existingItem = await CartItem.findOne({ cart: cart._id, product: productId });
+  const cartItems = await CartItem.find({ cart: cart._id, product: productId });
+  const existingItem = cartItems.find(i => matchVariant(i.variantOptions, variantOptions));
   if (existingItem) {
     existingItem.quantity += quantity;
+    if (variantOptions !== undefined) {
+      existingItem.variantOptions = variantOptions;
+    }
     await existingItem.save();
   } else {
     const item = await CartItem.create({
@@ -54,6 +62,7 @@ export const addToCart = async (userId: string, productId: string, quantity: num
       product: productId,
       quantity,
       price: product.basePrice,
+      variantOptions,
     });
     cart.items.push(item._id);
     await cart.save();
@@ -63,9 +72,10 @@ export const addToCart = async (userId: string, productId: string, quantity: num
   return populateCart(userId);
 };
 
-export const updateCartItem = async (userId: string, productId: string, quantity: number) => {
+export const updateCartItem = async (userId: string, productId: string, quantity: number, variantOptions?: any) => {
   const cart = await ensureCart(userId);
-  const item = await CartItem.findOne({ cart: cart._id, product: productId });
+  const cartItems = await CartItem.find({ cart: cart._id, product: productId });
+  const item = cartItems.find(i => matchVariant(i.variantOptions, variantOptions));
   if (!item) throw new ApiError(404, "Item not found in cart");
 
   if (quantity <= 0) {
@@ -74,6 +84,9 @@ export const updateCartItem = async (userId: string, productId: string, quantity
     await cart.save();
   } else {
     item.quantity = quantity;
+    if (variantOptions !== undefined) {
+      item.variantOptions = variantOptions;
+    }
     await item.save();
   }
 
@@ -81,9 +94,10 @@ export const updateCartItem = async (userId: string, productId: string, quantity
   return populateCart(userId);
 };
 
-export const removeCartItem = async (userId: string, productId: string) => {
+export const removeCartItem = async (userId: string, productId: string, variantOptions?: any) => {
   const cart = await ensureCart(userId);
-  const item = await CartItem.findOne({ cart: cart._id, product: productId });
+  const cartItems = await CartItem.find({ cart: cart._id, product: productId });
+  const item = cartItems.find(i => matchVariant(i.variantOptions, variantOptions));
   if (!item) throw new ApiError(404, "Item not found in cart");
 
   await CartItem.deleteOne({ _id: item._id });
@@ -106,17 +120,21 @@ export const clearCart = async (userId: string) => {
  * Sync a batch of items from the client (merge localStorage cart into server cart on login).
  * Each item: { productId, quantity }
  */
-export const syncCart = async (userId: string, clientItems: { productId: string; quantity: number }[]) => {
+export const syncCart = async (userId: string, clientItems: { productId: string; quantity: number, variantOptions?: any }[]) => {
   const cart = await ensureCart(userId);
 
   for (const ci of clientItems) {
     const product = await Product.findById(ci.productId);
     if (!product) continue; // skip invalid products
 
-    const existingItem = await CartItem.findOne({ cart: cart._id, product: ci.productId });
+    const cartItems = await CartItem.find({ cart: cart._id, product: ci.productId });
+    const existingItem = cartItems.find(i => matchVariant(i.variantOptions, ci.variantOptions));
     if (existingItem) {
       // Keep the higher quantity (merge strategy)
       existingItem.quantity = Math.max(existingItem.quantity, ci.quantity);
+      if (ci.variantOptions !== undefined) {
+        existingItem.variantOptions = ci.variantOptions;
+      }
       await existingItem.save();
     } else {
       const item = await CartItem.create({
@@ -124,6 +142,7 @@ export const syncCart = async (userId: string, clientItems: { productId: string;
         product: ci.productId,
         quantity: ci.quantity,
         price: product.basePrice,
+        variantOptions: ci.variantOptions,
       });
       cart.items.push(item._id);
     }

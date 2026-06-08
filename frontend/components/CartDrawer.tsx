@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { X, Minus, Plus, ShoppingBag, ArrowRight, Trash2, Ticket, CheckCircle2, ChevronRight } from "lucide-react";
-import { CartItem, useCart } from "../context/CartContext";
+import { CartItem, useCart, getCartItemId } from "../context/CartContext";
 import { useState, useEffect, useMemo } from "react";
 import { fetchPublicCoupons } from "../lib/api";
 
@@ -29,7 +29,7 @@ export function CartDrawer({ open, items, onClose }: Props) {
         }
     }, [open]);
 
-    const selectedItems = useMemo(() => items.filter(i => selectedIds.includes(i.product.id || (i.product as any)._id)), [items, selectedIds]);
+    const selectedItems = useMemo(() => items.filter(i => selectedIds.includes(getCartItemId(i))), [items, selectedIds]);
     const selectedSubtotal = useMemo(() => selectedItems.reduce((acc, item) => acc + getPrice(item.product) * item.quantity, 0), [selectedItems]);
 
     const applicableCoupons = useMemo(() => coupons.filter(c =>
@@ -144,7 +144,7 @@ export function CartDrawer({ open, items, onClose }: Props) {
                     ) : (
                         <div className="space-y-0 divide-y divide-black/5 px-4">
                             {items.map((item) => {
-                                const id = item.product.id || (item.product as any)._id;
+                                const id = getCartItemId(item);
                                 const price = getPrice(item.product);
                                 const lineTotal = price * item.quantity;
 

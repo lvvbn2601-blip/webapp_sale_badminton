@@ -10,6 +10,7 @@ import {
 } from "../lib/api";
 
 export type CartItem = {
+  id?: string;
   product: Product;
   quantity: number;
   variantOptions?: VariantOptions;
@@ -21,12 +22,12 @@ type CartContextValue = {
   selectedIds: string[];
   add: (product: Product, quantity?: number, variantOptions?: VariantOptions) => void;
   addProductToCart: (productId: string, quantity?: number) => boolean;
-  update: (productId: string, quantity: number) => void;
-  remove: (productId: string) => void;
+  update: (cartItemId: string, quantity: number) => void;
+  remove: (cartItemId: string) => void;
   clear: () => void;
   clearSelected: () => void;
-  toggleSelect: (productId: string) => void;
-  selectOnly: (productId: string) => void;
+  toggleSelect: (cartItemId: string) => void;
+  selectOnly: (cartItemId: string) => void;
   selectAll: () => void;
   deselectAll: () => void;
   subtotal: number;
@@ -37,17 +38,30 @@ type CartContextValue = {
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 
 /* ── helpers ──────────────────────────────────────────────── */
-const getItemPrice = (p: Product): number =>
-  Number(p.price ?? (p as any).basePrice ?? 0);
+const getItemPrice = (item: CartItem): number => {
+  const p = item.product;
+  const base = Number(p.price ?? (p as any).basePrice ?? 0);
+  const stringFee = Number(item.variantOptions?.stringPrice ?? 0);
+  return base + stringFee;
+};
 
 const getProductId = (p: Product): string =>
   p.id || (p as any)._id || "";
 
-const matchId = (product: Product, id: string): boolean =>
-  getProductId(product) === id;
+const generateCartItemId = (productId: string, vo?: VariantOptions) => {
+  if (!vo || Object.keys(vo).length === 0) return `${productId}_default`;
+  const keys = Object.keys(vo).sort();
+  const sortedVo: any = {};
+  for (const k of keys) {
+    if (vo[k as keyof VariantOptions] !== undefined) {
+      sortedVo[k] = vo[k as keyof VariantOptions];
+    }
+  }
+  return `${productId}_${JSON.stringify(sortedVo)}`;
+};
 
-const matchProduct = (a: Product, b: Product): boolean =>
-  getProductId(a) === getProductId(b);
+export const getCartItemId = (item: CartItem): string => 
+  item.id || generateCartItemId(getProductId(item.product), item.variantOptions);
 
 const getToken = (): string | null =>
   typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
@@ -59,10 +73,12 @@ const serverCartToItems = (serverCart: any): CartItem[] => {
     .filter((item: any) => item.product)
     .map((item: any) => {
       const p = item.product;
+      const pid = p._id || p.id;
       return {
+        id: generateCartItemId(pid, item.variantOptions),
         product: {
-          id: p._id || p.id,
-          _id: p._id || p.id,
+          id: pid,
+          _id: pid,
           name: p.name,
           slug: p.slug,
           image: p.image,
@@ -75,6 +91,7 @@ const serverCartToItems = (serverCart: any): CartItem[] => {
           description: p.description || "",
         } as Product,
         quantity: item.quantity,
+        variantOptions: item.variantOptions,
       };
     });
 };
@@ -148,29 +165,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("cart:selected", JSON.stringify(selectedIds));
   }, [selectedIds, hydrated]);
 
-  // Keep selectedIds aligned with current items; auto-select new items
-  const prevItemsRef = useRef<string[]>([]);
+  // Keep selectedIds aligned with current items
   useEffect(() => {
-    const currentIds = items.map(i => getProductId(i.product)).filter(Boolean);
-    const prevIds = prevItemsRef.current;
-    
-    // Find newly added items (in currentIds but not in prevIds)
-    const newIds = currentIds.filter(id => !prevIds.includes(id));
-    
-    if (newIds.length > 0) {
-      // Auto-select new items
-      setSelectedIds(prev => {
-        const set = new Set([...prev, ...newIds]);
-        // Also remove any deleted items from selectedIds
-        return Array.from(set).filter(id => currentIds.includes(id));
-      });
-    } else {
-      // Just clean up any selectedIds that are no longer in items
-      setSelectedIds(prev => prev.filter(id => currentIds.includes(id)));
-    }
-    
-    prevItemsRef.current = currentIds;
-  }, [items]);
+    if (!hydrated) return;
+    const currentIds = items.map(i => getCartItemId(i));
+    setSelectedIds(prev => {
+      const valid = prev.filter(id => currentIds.includes(id));
+      if (valid.length === prev.length) return prev;
+      return valid;
+    });
+  }, [items, hydrated]);
 
   /* ── Server sync logic ─────────────────────── */
   const syncWithServer = async (localItems: CartItem[], token: string) => {
@@ -184,6 +188,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const clientItems = localItems.map(ci => ({
           productId: getProductId(ci.product),
           quantity: ci.quantity,
+          variantOptions: ci.variantOptions,
         }));
         const serverCart = await syncServerCart(clientItems, token);
         const merged = serverCartToItems(serverCart);
@@ -215,30 +220,36 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const add = useCallback((product: Product, quantity = 1, variantOptions?: VariantOptions) => {
     const token = getToken();
 
+    const productId = getProductId(product);
+    const cartItemId = generateCartItemId(productId, variantOptions);
+
+    setSelectedIds(prev => prev.includes(cartItemId) ? prev : [...prev, cartItemId]);
+
     // Optimistically update local state
     setItems((prev) => {
-      const existing = prev.find((i) => matchProduct(i.product, product));
+      const existing = prev.find((i) => getCartItemId(i) === cartItemId);
       if (existing) {
         return prev.map((i) =>
-          matchProduct(i.product, product)
+          getCartItemId(i) === cartItemId
             ? { ...i, quantity: i.quantity + quantity, variantOptions: variantOptions || i.variantOptions }
             : i
         );
       }
-      return [...prev, { product, quantity, variantOptions }];
+      return [...prev, { id: cartItemId, product, quantity, variantOptions }];
     });
 
     // Sync to server in background
     if (token) {
-      addToServerCart(getProductId(product), quantity, token).catch(console.warn);
+      addToServerCart(getProductId(product), quantity, token, variantOptions).catch(console.warn);
     }
   }, []);
 
   const addProductToCart = useCallback(
     (productId: string, quantity = 1): boolean => {
-      const existing = items.find((i) => matchId(i.product, productId));
+      // For simple addProduct without variant options
+      const existing = items.find((i) => getProductId(i.product) === productId && (!i.variantOptions || Object.keys(i.variantOptions).length === 0));
       if (existing) {
-        add(existing.product, quantity);
+        add(existing.product, quantity, existing.variantOptions);
         return true;
       }
       return false;
@@ -246,29 +257,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [items, add]
   );
 
-  const update = useCallback((productId: string, quantity: number) => {
+  const update = useCallback((cartItemId: string, quantity: number) => {
     const token = getToken();
+    const existing = itemsRef.current.find(i => getCartItemId(i) === cartItemId);
 
     if (quantity <= 0) {
-      setItems((prev) => prev.filter((i) => !matchId(i.product, productId)));
-      if (token) removeServerCartItem(productId, token).catch(console.warn);
+      setItems((prev) => prev.filter((i) => getCartItemId(i) !== cartItemId));
+      if (token && existing) removeServerCartItem(getProductId(existing.product), token, existing.variantOptions).catch(console.warn);
       return;
     }
 
     setItems((prev) =>
-      prev.map((i) => (matchId(i.product, productId) ? { ...i, quantity } : i))
+      prev.map((i) => (getCartItemId(i) === cartItemId ? { ...i, quantity } : i))
     );
 
-    if (token) {
-      updateServerCartItem(productId, quantity, token).catch(console.warn);
+    if (token && existing) {
+      updateServerCartItem(getProductId(existing.product), quantity, token, existing.variantOptions).catch(console.warn);
     }
   }, []);
 
-  const remove = useCallback((productId: string) => {
+  const remove = useCallback((cartItemId: string) => {
     const token = getToken();
-    setItems((prev) => prev.filter((i) => !matchId(i.product, productId)));
-    if (token) {
-      removeServerCartItem(productId, token).catch(console.warn);
+    const existing = itemsRef.current.find(i => getCartItemId(i) === cartItemId);
+    setItems((prev) => prev.filter((i) => getCartItemId(i) !== cartItemId));
+    if (token && existing) {
+      removeServerCartItem(getProductId(existing.product), token, existing.variantOptions).catch(console.warn);
     }
   }, []);
 
@@ -282,37 +295,38 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearSelected = useCallback(() => {
     const token = getToken();
-    setItems((prev) => prev.filter((i) => !selectedIds.includes(getProductId(i.product))));
+    const toRemove = itemsRef.current.filter((i) => selectedIds.includes(getCartItemId(i)));
+    setItems((prev) => prev.filter((i) => !selectedIds.includes(getCartItemId(i))));
     if (token) {
-      Promise.all(selectedIds.map(id => removeServerCartItem(id, token))).catch(console.warn);
+      Promise.all(toRemove.map(item => removeServerCartItem(getProductId(item.product), token, item.variantOptions))).catch(console.warn);
     }
     setSelectedIds([]);
   }, [selectedIds]);
 
   const subtotal = useMemo(
-    () => items.reduce((acc, item) => acc + getItemPrice(item.product) * item.quantity, 0),
+    () => items.reduce((acc, item) => acc + getItemPrice(item) * item.quantity, 0),
     [items]
   );
 
   const selectedItems = useMemo(
-    () => items.filter(i => selectedIds.includes(getProductId(i.product))),
+    () => items.filter(i => selectedIds.includes(getCartItemId(i))),
     [items, selectedIds]
   );
 
   const count = useMemo(() => items.reduce((acc, i) => acc + i.quantity, 0), [items]);
 
-  const toggleSelect = useCallback((productId: string) => {
+  const toggleSelect = useCallback((cartItemId: string) => {
     setSelectedIds(prev =>
-      prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
+      prev.includes(cartItemId) ? prev.filter(id => id !== cartItemId) : [...prev, cartItemId]
     );
   }, []);
 
-  const selectOnly = useCallback((productId: string) => {
-    setSelectedIds([productId]);
+  const selectOnly = useCallback((cartItemId: string) => {
+    setSelectedIds([cartItemId]);
   }, []);
 
   const selectAll = useCallback(() => {
-    setSelectedIds(items.map(i => getProductId(i.product)).filter(Boolean));
+    setSelectedIds(items.map(i => getCartItemId(i)).filter(Boolean));
   }, [items]);
 
   const deselectAll = useCallback(() => setSelectedIds([]), []);

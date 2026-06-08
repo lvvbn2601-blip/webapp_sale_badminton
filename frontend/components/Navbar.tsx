@@ -6,7 +6,7 @@ import {
   Heart, Sun, Moon, ChevronDown, Clock, Tag,
   Settings, LogOut, Package, ArrowRight, TrendingUp, LayoutDashboard
 } from "lucide-react";
-import { useCart } from "../context/CartContext";
+import { useCart, getCartItemId } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
 import { useRouter } from "next/router";
 import Image from "next/image";
@@ -429,7 +429,7 @@ export function Navbar({ onCartClick }: Props) {
                           </div>
                         ) : (
                           items.slice(0, 3).map((item, idx) => {
-                            const pid = item.product.id || (item.product as any)._id;
+                            const pid = getCartItemId(item);
                             return (
                               <div key={idx} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition border border-transparent hover:border-black/5">
                                 <input
@@ -458,7 +458,7 @@ export function Navbar({ onCartClick }: Props) {
                       </div>
 
                       {items.length > 0 && (() => {
-                        const selectedItems = items.filter(i => selectedIds.includes(i.product.id || (i.product as any)._id));
+                        const selectedItems = items.filter(i => selectedIds.includes(getCartItemId(i)));
                         const selectedSubtotal = selectedItems.reduce((acc, item) => acc + (item.product.price || (item.product as any).basePrice || 0) * item.quantity, 0);
                         return (
                           <div className="p-4 bg-gray-50 dark:bg-gray-900 border-t border-black/5 dark:border-white/10 space-y-3">

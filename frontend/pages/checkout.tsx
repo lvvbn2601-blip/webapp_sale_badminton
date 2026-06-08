@@ -8,7 +8,7 @@ import {
   Phone, User, Mail, QrCode, ArrowRight, Package, Tag, Loader2, CheckCircle2, ChevronRight,
   Truck, Wrench, Ticket, Percent, DollarSign, ExternalLink, Smartphone, AlertCircle
 } from "lucide-react";
-import { useCart } from "../context/CartContext";
+import { useCart, getCartItemId } from "../context/CartContext";
 import { createOrder, fetchProfile, fetchPublicCoupons, createVnPayPayment, createMoMoPayment, simulatePayment } from "../lib/api";
 import { VariantOptions } from "../types";
 import { useTracking } from "../lib/useTracking";
@@ -234,16 +234,12 @@ export default function CheckoutPage() {
 
   const items = selectedItems;
   const USD_TO_VND = 25000;
-  const getItemPriceVND = (i: any) => {
-    let base = (i.product.price || (i.product as any).basePrice || 0) * USD_TO_VND;
-    if (i.variantOptions?.addStringingService && i.variantOptions?.stringPrice) {
-      base += i.variantOptions.stringPrice;
-    }
-    return base;
-  };
-
   const baseSubtotalVND = items.reduce(
-    (acc, i) => acc + getItemPriceVND(i) * i.quantity,
+    (acc, i) => {
+      const base = i.product.price || (i.product as any).basePrice || 0;
+      const stringFee = (i.variantOptions?.stringPrice || 0) / USD_TO_VND;
+      return acc + (base + stringFee) * USD_TO_VND * i.quantity;
+    },
     0
   );
 
@@ -253,7 +249,7 @@ export default function CheckoutPage() {
 
   const calculateEligibleSubtotal = useCallback((coupon: any) => {
     let eligibleSubtotal = 0;
-    
+
     items.forEach((item: any) => {
       const product = item.product;
       let isEligible = true;
@@ -284,7 +280,9 @@ export default function CheckoutPage() {
       }
 
       if (isEligible) {
-        eligibleSubtotal += getItemPriceVND(item) * item.quantity;
+        const base = product.price || product.basePrice || 0;
+        const stringFee = item.variantOptions?.stringPrice || 0;
+        eligibleSubtotal += (base + stringFee) * USD_TO_VND * item.quantity;
       }
     });
 
@@ -456,11 +454,13 @@ export default function CheckoutPage() {
       const payload = {
         items: items.map((i) => {
           const vo = i.variantOptions || {} as VariantOptions;
+          const basePrice = i.product.price || (i.product as any).basePrice || 0;
+          const stringFee = vo.stringPrice || 0;
           return {
             productId: i.product.id || (i.product as any)._id,
             name: i.product.name,
             image: i.product.image,
-            price: (i.product.price || (i.product as any).basePrice || 0) + (vo.addStringingService && vo.stringPrice ? vo.stringPrice / USD_TO_VND : 0),
+            price: basePrice + stringFee,
             quantity: i.quantity,
             // Variant metadata
             selectedColor: vo.selectedColor,
@@ -472,7 +472,7 @@ export default function CheckoutPage() {
             accessoryType: vo.accessoryType,
             // Stringing service
             needsStringing: vo.addStringingService || false,
-            stringType: vo.stringName || vo.stringType,
+            stringType: vo.stringType,
             stringTension: vo.stringTension,
           };
         }),
@@ -1085,7 +1085,7 @@ export default function CheckoutPage() {
                 {items.map((item) => {
                   const vo = item.variantOptions;
                   return (
-                    <div key={item.product.id} className="flex gap-3 items-start group">
+                    <div key={getCartItemId(item)} className="flex gap-3 items-start group">
                       <div className="relative w-16 h-16 rounded-xl border border-gray-100 bg-gray-50 overflow-hidden shrink-0">
                         {item.product.image ? (
                           <Image src={item.product.image} alt={item.product.name} fill className="object-cover" />
@@ -1110,7 +1110,7 @@ export default function CheckoutPage() {
                           {vo?.addStringingService && (
                             <div className="flex items-center gap-1 mt-1">
                               <Wrench className="w-3 h-3 text-primary" />
-                              <span className="text-[11px] font-semibold text-primary">Stringing: {vo.stringName || vo.stringType} @ {vo.stringTension} lbs</span>
+                              <span className="text-[11px] font-semibold text-primary">Stringing: {vo.stringName} @ {vo.stringTension} lbs</span>
                             </div>
                           )}
                           {!vo?.selectedColor && !vo?.selectedGrip && !vo?.selectedSize && !vo?.addStringingService && !vo?.selectedBagType && !vo?.accessoryType && (
@@ -1119,7 +1119,8 @@ export default function CheckoutPage() {
                         </div>
                       </div>
                       <div className="text-sm font-bold text-gray-800 shrink-0">
-                        {formatVND(getItemPriceVND(item) * item.quantity)}
+                        {/*formatVND((item.product.price || (item.product as any).basePrice || 0) * USD_TO_VND * item.quantity)*/}
+                        {((item.product as any).basePrice + (item.variantOptions?.stringPrice || 0) / USD_TO_VND) * item.quantity} $
                       </div>
                     </div>
                   );

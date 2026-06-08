@@ -3,7 +3,7 @@ import Head from "next/head";
 import Image from "next/image";
 import Link from "next/link";
 import { Layout } from "../components/Layout";
-import { useCart } from "../context/CartContext";
+import { useCart, getCartItemId } from "../context/CartContext";
 import {
   Minus,
   Plus,
@@ -19,7 +19,11 @@ import {
 } from "lucide-react";
 import { FrequentlyPurchasedTogether } from "../components/FrequentlyPurchasedTogether";
 
-const getPrice = (p: any): number => Number(p.price ?? p.basePrice ?? 0);
+const getPrice = (item: any): number => {
+  const base = Number(item.product?.price ?? item.product?.basePrice ?? 0);
+  const stringFee = Number((item.variantOptions?.stringPrice ?? 0) / 25000);
+  return base ;
+};
 
 export default function CartPage() {
   const {
@@ -36,7 +40,7 @@ export default function CartPage() {
   } = useCart();
 
   const selectedSubtotal = selectedItems.reduce(
-    (acc, item) => acc + getPrice(item.product) * item.quantity,
+    (acc, item) => acc + getPrice(item) * item.quantity,
     0
   );
   const selectedCount = selectedItems.reduce((acc, i) => acc + i.quantity, 0);
@@ -152,8 +156,8 @@ export default function CartPage() {
 
                 {/* Cart Items */}
                 {items.slice().reverse().map((item) => {
-                  const id = item.product.id || (item.product as any)._id;
-                  const price = getPrice(item.product);
+                  const id = getCartItemId(item);
+                  const price = getPrice(item);
                   const lineTotal = price * item.quantity;
                   const brandName =
                     typeof (item.product as any).brand === "object"

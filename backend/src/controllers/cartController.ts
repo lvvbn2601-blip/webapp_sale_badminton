@@ -13,25 +13,25 @@ export const getCart = asyncHandler(async (req: AuthRequest, res: Response) => {
 
 export const addItem = asyncHandler(async (req: AuthRequest, res: Response) => {
   if (!req.user) throw new ApiError(401, "Unauthorized");
-  const { productId, quantity } = req.body;
+  const { productId, quantity, variantOptions } = req.body;
   if (!productId) throw new ApiError(400, "productId is required");
-  const cart = await CartService.addToCart(req.user.sub, productId, quantity || 1);
+  const cart = await CartService.addToCart(req.user.sub, productId, quantity || 1, variantOptions);
   res.json(ok(cart));
 });
 
 export const updateItem = asyncHandler(async (req: AuthRequest, res: Response) => {
   if (!req.user) throw new ApiError(401, "Unauthorized");
-  const { productId, quantity } = req.body;
+  const { productId, quantity, variantOptions } = req.body;
   if (!productId) throw new ApiError(400, "productId is required");
-  const cart = await CartService.updateCartItem(req.user.sub, productId, quantity);
+  const cart = await CartService.updateCartItem(req.user.sub, productId, quantity, variantOptions);
   res.json(ok(cart));
 });
 
 export const removeItem = asyncHandler(async (req: AuthRequest, res: Response) => {
   if (!req.user) throw new ApiError(401, "Unauthorized");
-  const { productId } = req.body;
+  const { productId, variantOptions } = req.body;
   if (!productId) throw new ApiError(400, "productId is required");
-  const cart = await CartService.removeCartItem(req.user.sub, productId);
+  const cart = await CartService.removeCartItem(req.user.sub, productId, variantOptions);
   res.json(ok(cart));
 });
 

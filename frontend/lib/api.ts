@@ -344,24 +344,24 @@ export const fetchCart = async (token: string) => {
   return data.data;
 };
 
-export const addToServerCart = async (productId: string, quantity: number, token: string) => {
-  const { data } = await api.post("/cart/add", { productId, quantity }, {
+export const addToServerCart = async (productId: string, quantity: number, token: string, variantOptions?: any) => {
+  const { data } = await api.post("/cart/add", { productId, quantity, variantOptions }, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return data.data;
 };
 
-export const updateServerCartItem = async (productId: string, quantity: number, token: string) => {
-  const { data } = await api.put("/cart/update", { productId, quantity }, {
+export const updateServerCartItem = async (productId: string, quantity: number, token: string, variantOptions?: any) => {
+  const { data } = await api.put("/cart/update", { productId, quantity, variantOptions }, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return data.data;
 };
 
-export const removeServerCartItem = async (productId: string, token: string) => {
+export const removeServerCartItem = async (productId: string, token: string, variantOptions?: any) => {
   const { data } = await api.delete("/cart/remove", {
     headers: { Authorization: `Bearer ${token}` },
-    data: { productId },
+    data: { productId, variantOptions },
   });
   return data.data;
 };
@@ -373,7 +373,7 @@ export const clearServerCart = async (token: string) => {
   return data.data;
 };
 
-export const syncServerCart = async (items: { productId: string; quantity: number }[], token: string) => {
+export const syncServerCart = async (items: { productId: string; quantity: number, variantOptions?: any }[], token: string) => {
   const { data } = await api.post("/cart/sync", { items }, {
     headers: { Authorization: `Bearer ${token}` },
   });

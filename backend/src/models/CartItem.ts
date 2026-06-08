@@ -6,6 +6,7 @@ export interface ICartItem extends Document {
   productVariant?: mongoose.Types.ObjectId;
   quantity: number;
   price: number;
+  variantOptions?: any;
 }
 
 const CartItemSchema = new Schema<ICartItem>(
@@ -15,11 +16,10 @@ const CartItemSchema = new Schema<ICartItem>(
     productVariant: { type: Schema.Types.ObjectId, ref: "ProductVariant" },
     quantity: { type: Number, required: true, min: 1 },
     price: { type: Number, required: true },
+    variantOptions: { type: Schema.Types.Mixed },
   },
   { timestamps: true }
 );
 
-// Ensure one product per cart (no duplicates)
-CartItemSchema.index({ cart: 1, product: 1 }, { unique: true });
-
+// Removed unique index to allow multiple variants of the same product
 export const CartItem = mongoose.model<ICartItem>("CartItem", CartItemSchema);
