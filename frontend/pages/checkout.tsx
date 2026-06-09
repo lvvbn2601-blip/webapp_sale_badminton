@@ -237,14 +237,23 @@ export default function CheckoutPage() {
   const baseSubtotalVND = items.reduce(
     (acc, i) => {
       const base = i.product.price || (i.product as any).basePrice || 0;
-      const stringFee = (i.variantOptions?.stringPrice || 0) / USD_TO_VND;
-      return acc + (base + stringFee) * USD_TO_VND * i.quantity;
+      const stringFeeVND = i.variantOptions?.stringPrice || 0;
+      return acc + (base * USD_TO_VND + stringFeeVND) * i.quantity;
     },
     0
   );
 
+  const isFreeShippingEligible = (baseSubtotalVND / USD_TO_VND) > 120;
+  
+  const getShippingPrice = (method: typeof SHIPPING_METHODS[0]) => {
+    if (method.id === "Standard" || method.id === "Economy") {
+      return isFreeShippingEligible ? 0 : 300000;
+    }
+    return method.price;
+  };
+
   const selectedShipping = SHIPPING_METHODS.find(m => m.id === shippingMethod);
-  const shippingFeeVND = selectedShipping?.price || 0;
+  const shippingFeeVND = selectedShipping ? getShippingPrice(selectedShipping) : 0;
   const codFeeVND = paymentMethod === "COD" ? 5000 : 0;
 
   const calculateEligibleSubtotal = useCallback((coupon: any) => {
@@ -460,7 +469,7 @@ export default function CheckoutPage() {
             productId: i.product.id || (i.product as any)._id,
             name: i.product.name,
             image: i.product.image,
-            price: basePrice + stringFee,
+            price: basePrice,
             quantity: i.quantity,
             // Variant metadata
             selectedColor: vo.selectedColor,
@@ -634,6 +643,7 @@ export default function CheckoutPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {SHIPPING_METHODS.map((m) => {
                   const isActive = shippingMethod === m.id;
+                  const finalPrice = getShippingPrice(m);
                   return (
                     <button
                       key={m.id}
@@ -646,12 +656,26 @@ export default function CheckoutPage() {
                         <div className="text-xs text-gray-400 font-medium">Est: {m.time}</div>
                       </div>
                       <div className="font-semibold text-primary text-sm flex flex-col justify-end">
-                        {m.price === 0 ? "Free" : formatVND(m.price)}
+                        {finalPrice === 0 ? "Free" : formatVND(finalPrice)}
                       </div>
                     </button>
                   );
                 })}
               </div>
+              {!isFreeShippingEligible && (
+                <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50/50 p-3 flex items-center gap-2 text-sm text-blue-700">
+                  <Truck className="w-4 h-4 shrink-0" />
+                  <span>
+                    Add <strong>{formatVND((120 - baseSubtotalVND / USD_TO_VND) * USD_TO_VND)}</strong> more for <strong>free shipping</strong> on Standard & Economy!
+                  </span>
+                </div>
+              )}
+              {isFreeShippingEligible && (shippingMethod === "Standard" || shippingMethod === "Economy") && (
+                <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 text-sm font-semibold text-emerald-700">
+                  <Truck className="w-4 h-4 shrink-0" />
+                  You've qualified for free shipping! 🎉
+                </div>
+              )}
             </section>
 
             {/* E-WALLET PROMOTION BANNER */}
@@ -1119,8 +1143,7 @@ export default function CheckoutPage() {
                         </div>
                       </div>
                       <div className="text-sm font-bold text-gray-800 shrink-0">
-                        {/*formatVND((item.product.price || (item.product as any).basePrice || 0) * USD_TO_VND * item.quantity)*/}
-                        {((item.product as any).basePrice + (item.variantOptions?.stringPrice || 0) / USD_TO_VND) * item.quantity} $
+                        {formatVND(((item.product.price || (item.product as any).basePrice || 0) * USD_TO_VND + (item.variantOptions?.stringPrice || 0)) * item.quantity)}
                       </div>
                     </div>
                   );

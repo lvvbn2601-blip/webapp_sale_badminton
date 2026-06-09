@@ -22,7 +22,7 @@ import { FrequentlyPurchasedTogether } from "../components/FrequentlyPurchasedTo
 const getPrice = (item: any): number => {
   const base = Number(item.product?.price ?? item.product?.basePrice ?? 0);
   const stringFee = Number((item.variantOptions?.stringPrice ?? 0) / 25000);
-  return base ;
+  return base;
 };
 
 export default function CartPage() {
