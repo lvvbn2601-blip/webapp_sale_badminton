@@ -56,8 +56,8 @@ export const createVnPayUrl = async (orderId: string, amount: number, ipAddr: st
   const order = await Order.findById(orderId);
   if (!order) throw new ApiError(404, "Order not found");
 
-  let vnpIp = ipAddr || "127.0.0.1";
-  if (vnpIp === "::1" || vnpIp.includes("::ffff:")) {
+  let vnpIp = (ipAddr || "127.0.0.1").split(",")[0].trim();
+  if (vnpIp === "::1" || vnpIp.includes("::ffff:") || !vnpIp) {
     vnpIp = "127.0.0.1";
   }
 
