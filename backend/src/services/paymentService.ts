@@ -5,17 +5,27 @@ import { Payment } from "../models/Payment";
 import { ApiError } from "../utils/apiError";
 import { Order } from "../models/Order";
 
-const vnpDate = () => {
-  const d = new Date();
+const getVnpDates = () => {
+  // Use GMT+7 for VNPAY
+  const date = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
   const pad = (n: number) => n.toString().padStart(2, "0");
-  return (
-    d.getFullYear().toString() +
-    pad(d.getMonth() + 1) +
-    pad(d.getDate()) +
-    pad(d.getHours()) +
-    pad(d.getMinutes()) +
-    pad(d.getSeconds())
-  );
+  
+  const formatDate = (d: Date) => {
+    return (
+      d.getFullYear().toString() +
+      pad(d.getMonth() + 1) +
+      pad(d.getDate()) +
+      pad(d.getHours()) +
+      pad(d.getMinutes()) +
+      pad(d.getSeconds())
+    );
+  };
+
+  const createDate = formatDate(date);
+  date.setMinutes(date.getMinutes() + 15);
+  const expireDate = formatDate(date);
+
+  return { createDate, expireDate };
 };
 
 // ── VNPay ─────────────────────────────────────────────────
@@ -46,21 +56,29 @@ export const createVnPayUrl = async (orderId: string, amount: number, ipAddr: st
   const order = await Order.findById(orderId);
   if (!order) throw new ApiError(404, "Order not found");
 
+  let vnpIp = ipAddr || "127.0.0.1";
+  if (vnpIp === "::1" || vnpIp.includes("::ffff:")) {
+    vnpIp = "127.0.0.1";
+  }
+
+  const { createDate, expireDate } = getVnpDates();
+
   const vnpParams: Record<string, string> = {
     vnp_Version: "2.1.0",
     vnp_Command: "pay",
     vnp_TmnCode: env.vnpay.tmnCode,
     vnp_Amount: String(Math.round(amount * 100)),
-    vnp_CreateDate: vnpDate(),
+    vnp_CreateDate: createDate,
     vnp_CurrCode: "VND",
-    vnp_IpAddr: ipAddr,
+    vnp_IpAddr: vnpIp,
     vnp_Locale: "vn",
     vnp_OrderInfo: `Thanh toan don hang ${orderId}`,
     vnp_OrderType: "other",
     vnp_ReturnUrl: env.vnpay.returnUrl,
     vnp_TxnRef: orderId,
+    vnp_ExpireDate: expireDate,
   };
-
+  
   // Sort params using VNPAY's required sortObject algorithm
   // (keys & values are URI-encoded, %20 replaced with +)
   const sortedParams = sortVnpParams(vnpParams);
