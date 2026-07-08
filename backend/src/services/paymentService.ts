@@ -526,7 +526,7 @@ export const refundVnPay = async (
   // ── Correct refund API URL ────────────────────────────
   const refundUrl = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
 
-  const createDate = vnpDate();
+  const { createDate } = getVnpDates();
   const requestId = `RF-${Date.now()}`;
   const vnpAmount = String(Math.round(amount * 100));
   const orderInfo = `Hoan tien don hang ${orderId}`;
