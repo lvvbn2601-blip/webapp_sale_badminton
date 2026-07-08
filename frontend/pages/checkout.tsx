@@ -290,8 +290,8 @@ export default function CheckoutPage() {
 
       if (isEligible) {
         const base = product.price || product.basePrice || 0;
-        const stringFee = item.variantOptions?.stringPrice || 0;
-        eligibleSubtotal += (base + stringFee) * USD_TO_VND * item.quantity;
+        const stringFeeVND = item.variantOptions?.stringPrice || 0;
+        eligibleSubtotal += (base * USD_TO_VND + stringFeeVND) * item.quantity;
       }
     });
 
@@ -346,7 +346,7 @@ export default function CheckoutPage() {
     return 0;
   }, [selectedCoupon, calculateEligibleSubtotal, USD_TO_VND]);
 
-  const finalTotalVND = baseSubtotalVND - discountAmountVND + shippingFeeVND + codFeeVND;
+  const finalTotalVND = baseSubtotalVND - discountAmountVND + shippingFeeVND;
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     setToast({ show: true, message, type });
@@ -464,12 +464,13 @@ export default function CheckoutPage() {
         items: items.map((i) => {
           const vo = i.variantOptions || {} as VariantOptions;
           const basePrice = i.product.price || (i.product as any).basePrice || 0;
-          const stringFee = vo.stringPrice || 0;
+          const stringFeeUSD = (vo.stringPrice || 0) / USD_TO_VND;
+          const totalPrice = basePrice + stringFeeUSD;
           return {
             productId: i.product.id || (i.product as any)._id,
             name: i.product.name,
             image: i.product.image,
-            price: basePrice,
+            price: totalPrice,
             quantity: i.quantity,
             // Variant metadata
             selectedColor: vo.selectedColor,
@@ -1087,7 +1088,6 @@ export default function CheckoutPage() {
                   <Banknote className="w-5 h-5 shrink-0 text-orange-500" />
                   <div>
                     <p className="font-bold">Nhận hàng rồi thanh toán</p>
-                    <p className="text-orange-700/80 text-xs mt-0.5">Phí thu hộ (COD) {formatVND(5000)} sẽ được áp dụng cho phương thức này.</p>
                   </div>
                 </div>
               )}
@@ -1178,12 +1178,6 @@ export default function CheckoutPage() {
                   <div className="flex justify-between items-center text-green-600 animate-in fade-in">
                     <span>Discount ({selectedCoupon.code})</span>
                     <span>-{formatVND(discountAmountVND)}</span>
-                  </div>
-                )}
-                {paymentMethod === "COD" && (
-                  <div className="flex justify-between items-center text-orange-600 animate-in fade-in">
-                    <span>COD Fee</span>
-                    <span>{formatVND(codFeeVND)}</span>
                   </div>
                 )}
               </div>
