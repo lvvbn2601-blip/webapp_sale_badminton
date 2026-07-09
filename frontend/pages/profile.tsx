@@ -431,6 +431,7 @@ export default function ProfilePage() {
 
               {activeTab === "profile" && (
                 <div className="p-6 sm:p-8 space-y-8 animate-in fade-in zoom-in-95 duration-300">
+                  <div>
                   <div className="flex flex-col sm:flex-row items-center gap-6 border-b border-black/5 pb-8">
                     <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-gray-100 ring-4 ring-white shadow-md cursor-pointer hover:opacity-90 transition-opacity" onClick={() => fileInputRef.current?.click()}>
                       {avatar ? (
@@ -450,6 +451,11 @@ export default function ProfilePage() {
                       <p className="text-sm text-secondary/60">{email}</p>
                     </div>
                   </div>
+                  <div>
+                      good morning teacher
+                  </div>
+                  </div>
+                  
 
                   {/* ── Loyalty & Tier Dashboard ── */}
                   {account && (() => {
