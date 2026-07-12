@@ -451,9 +451,7 @@ export default function ProfilePage() {
                       <p className="text-sm text-secondary/60">{email}</p>
                     </div>
                   </div>
-                  <div>
-                      good morning teacher
-                  </div>
+      
                   </div>
                   
 
