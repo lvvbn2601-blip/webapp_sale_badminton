@@ -9,7 +9,7 @@ const getVnpDates = () => {
   // Use GMT+7 for VNPAY
   const date = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
   const pad = (n: number) => n.toString().padStart(2, "0");
-  
+
   const formatDate = (d: Date) => {
     return (
       d.getFullYear().toString() +
@@ -80,7 +80,7 @@ export const createVnPayUrl = async (orderId: string, amount: number, ipAddr: st
     vnp_TxnRef: vnpOrderId,
     vnp_ExpireDate: expireDate,
   };
-  
+
   // Sort params using VNPAY's required sortObject algorithm
   // (keys & values are URI-encoded, %20 replaced with +)
   const sortedParams = sortVnpParams(vnpParams);
