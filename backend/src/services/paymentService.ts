@@ -63,7 +63,7 @@ export const createVnPayUrl = async (orderId: string, amount: number, ipAddr: st
 
   const { createDate, expireDate } = getVnpDates();
 
-  const vnpOrderId = `${orderId}-${Date.now()}`;
+  const vnpOrderId = `${orderId}T${Date.now()}`;
 
   const vnpParams: Record<string, string> = {
     vnp_Version: "2.1.0",
@@ -128,7 +128,7 @@ export const verifyVnPayReturn = async (queryParams: Record<string, any>) => {
   const status = vnp_ResponseCode === "00" && isValid ? "success" : "failed";
 
   // Extract real orderId from vnp_TxnRef
-  const realOrderId = String(vnp_TxnRef).replace(/-\d+$/, "");
+  const realOrderId = String(vnp_TxnRef).split('T')[0];
 
   // Update payment record
   await Payment.findOneAndUpdate(
