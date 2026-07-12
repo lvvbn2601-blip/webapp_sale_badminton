@@ -208,6 +208,7 @@ export default function ProductDetailPage({ product, related, allCategoryProduct
     if (!product) return;
     const opts = buildVariantOptions();
     cart.add({ ...product, price: computedPrice } as any, quantity, opts);
+    
 
     // Track add to cart event
     trackEvent('add_to_cart', product.id || (product as any)._id, 'product', {

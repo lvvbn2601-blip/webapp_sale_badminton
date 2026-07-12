@@ -63,6 +63,8 @@ export const createVnPayUrl = async (orderId: string, amount: number, ipAddr: st
 
   const { createDate, expireDate } = getVnpDates();
 
+  const vnpOrderId = `${orderId}-${Date.now()}`;
+
   const vnpParams: Record<string, string> = {
     vnp_Version: "2.1.0",
     vnp_Command: "pay",
@@ -75,7 +77,7 @@ export const createVnPayUrl = async (orderId: string, amount: number, ipAddr: st
     vnp_OrderInfo: `Thanh toan don hang ${orderId}`,
     vnp_OrderType: "other",
     vnp_ReturnUrl: env.vnpay.returnUrl,
-    vnp_TxnRef: orderId,
+    vnp_TxnRef: vnpOrderId,
     vnp_ExpireDate: expireDate,
   };
   
@@ -97,6 +99,7 @@ export const createVnPayUrl = async (orderId: string, amount: number, ipAddr: st
     amount,
     status: "pending",
     provider: "vnpay",
+    transactionId: vnpOrderId, // store vnpay orderId for lookup during verify
   });
 
   // Build the final URL (encode:false since values are already encoded)
@@ -124,13 +127,16 @@ export const verifyVnPayReturn = async (queryParams: Record<string, any>) => {
   const isValid = expectedHash === vnp_SecureHash;
   const status = vnp_ResponseCode === "00" && isValid ? "success" : "failed";
 
+  // Extract real orderId from vnp_TxnRef
+  const realOrderId = String(vnp_TxnRef).replace(/-\d+$/, "");
+
   // Update payment record
   await Payment.findOneAndUpdate(
-    { order: vnp_TxnRef as string, provider: "vnpay" },
+    { order: realOrderId, provider: "vnpay", transactionId: vnp_TxnRef as string },
     {
       status,
       amount: Number(vnp_Amount) / 100,
-      transactionId: vnp_TransactionNo as string,
+      transactionId: vnp_TransactionNo as string, // now store the real VNPay transaction ID
       raw: queryParams,
     },
     { sort: { createdAt: -1 } }
@@ -138,7 +144,7 @@ export const verifyVnPayReturn = async (queryParams: Record<string, any>) => {
 
   // Update order status based on payment result
   if (status === "success") {
-    await Order.findByIdAndUpdate(vnp_TxnRef, {
+    await Order.findByIdAndUpdate(realOrderId, {
       status: "paid",
       $push: {
         statusHistory: {
@@ -149,7 +155,7 @@ export const verifyVnPayReturn = async (queryParams: Record<string, any>) => {
       },
     });
   } else {
-    await Order.findByIdAndUpdate(vnp_TxnRef, {
+    await Order.findByIdAndUpdate(realOrderId, {
       status: "cancelled",
       $push: {
         statusHistory: {
@@ -161,7 +167,7 @@ export const verifyVnPayReturn = async (queryParams: Record<string, any>) => {
     });
   }
 
-  return { status, orderId: vnp_TxnRef, isValid };
+  return { status, orderId: realOrderId, isValid };
 };
 
 // ── MoMo ──────────────────────────────────────────────────
