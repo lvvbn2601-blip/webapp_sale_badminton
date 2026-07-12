@@ -63,7 +63,7 @@ export const createVnPayUrl = async (orderId: string, amount: number, ipAddr: st
 
   const { createDate, expireDate } = getVnpDates();
 
-  const vnpOrderId = `${orderId}T${Date.now()}`;
+  const vnpOrderId = `${orderId}-${Date.now()}`;
 
   const vnpParams: Record<string, string> = {
     vnp_Version: "2.1.0",
